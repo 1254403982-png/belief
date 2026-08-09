@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, type BeliefEdge } from '../db'
 import { exploreChain, type ChainExploreResult } from '../utils/deepseek'
-import { getNodeColor, getTypeLabel } from './utils'
+import { getNodeColor, getTypeLabel, normalizeEdgeDirection } from './utils'
 
 interface Props {
   open: boolean
@@ -69,14 +69,17 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
   const handleAddSuggestedNode = (node: { content: string; type: BeliefNode['type'] }, index: number) => {
     const userId = localStorage.getItem('currentUserId') || ''
     const id = crypto.randomUUID()
+    // 以聚焦节点为锚点来计算位置
+    const focusNode = store.nodes.find(n => n.id === store.focusNodeId)
+    const anchorPos = focusNode?.position ?? { x: 0, y: 0 }
     const newNode: BeliefNode = {
       id,
       userId,
       type: node.type,
       content: node.content,
       position: {
-        x: (Math.random() - 0.5) * 300,
-        y: (Math.random() - 0.5) * 300,
+        x: anchorPos.x + (Math.random() - 0.5) * 300,
+        y: anchorPos.y + (Math.random() - 0.5) * 300,
         z: Math.random(),
       },
       createdAt: new Date(),
@@ -85,23 +88,61 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
     }
     store.addNode(newNode)
     db.beliefNodes.add(newNode)
+    // 自动连接到聚焦节点（原链路中的节点）
+    if (focusNode) {
+      const dir = normalizeEdgeDirection(focusNode.id, id, focusNode.type, node.type)
+      const edge: BeliefEdge = {
+        id: crypto.randomUUID(),
+        userId,
+        sourceId: dir.sourceId,
+        targetId: dir.targetId,
+        type: 'suggested_by_ai',
+        strength: 0.5,
+        createdAt: new Date(),
+      }
+      store.addEdge(edge)
+      db.beliefEdges.add(edge)
+    }
     setAddedNodes(prev => new Set(prev).add(index))
   }
 
   const handleAddMissingLink = (ml: ChainExploreResult['missingLinks'][0], index: number) => {
     const userId = localStorage.getItem('currentUserId') || ''
+    // 查找链路中匹配 fromContent / toContent 的节点
+    const chainNodes = store.nodes.filter(n => chainNodeIds.has(n.id) && !n.deletedAt)
+    const findNode = (content: string) => {
+      // 先按 ID 精确匹配
+      let found = chainNodes.find(n => n.id === content)
+      if (found) return found
+      // 再按内容精确匹配
+      found = chainNodes.find(n => n.content === content)
+      if (found) return found
+      // 最后按内容包含匹配（取第一个）
+      found = chainNodes.find(n => content.includes(n.content) || n.content.includes(content))
+      return found
+    }
+    const fromNode = findNode(ml.fromContent)
+    const toNode = findNode(ml.toContent)
+
     // 如果有建议的中间节点，先创建它
     let bridgeNodeId: string | null = null
     if (ml.suggestedNode) {
       bridgeNodeId = crypto.randomUUID()
+      // 以 fromNode 和 toNode 的中点作为位置
+      const midX = fromNode && toNode
+        ? (fromNode.position.x + toNode.position.x) / 2
+        : (Math.random() - 0.5) * 300
+      const midY = fromNode && toNode
+        ? (fromNode.position.y + toNode.position.y) / 2
+        : (Math.random() - 0.5) * 300
       const bridgeNode: BeliefNode = {
         id: bridgeNodeId,
         userId,
         type: ml.suggestedNode.type,
         content: ml.suggestedNode.content,
         position: {
-          x: (Math.random() - 0.5) * 300,
-          y: (Math.random() - 0.5) * 300,
+          x: midX + (Math.random() - 0.5) * 60,
+          y: midY + (Math.random() - 0.5) * 60,
           z: Math.random(),
         },
         createdAt: new Date(),
@@ -110,6 +151,38 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
       }
       store.addNode(bridgeNode)
       db.beliefNodes.add(bridgeNode)
+
+      // 创建 fromNode → bridgeNode 的连线
+      if (fromNode) {
+        const dir = normalizeEdgeDirection(fromNode.id, bridgeNodeId, fromNode.type, ml.suggestedNode.type)
+        const edge: BeliefEdge = {
+          id: crypto.randomUUID(),
+          userId,
+          sourceId: dir.sourceId,
+          targetId: dir.targetId,
+          type: 'suggested_by_ai',
+          strength: 0.5,
+          createdAt: new Date(),
+        }
+        store.addEdge(edge)
+        db.beliefEdges.add(edge)
+      }
+
+      // 创建 bridgeNode → toNode 的连线
+      if (toNode) {
+        const dir = normalizeEdgeDirection(bridgeNodeId, toNode.id, ml.suggestedNode.type, toNode.type)
+        const edge: BeliefEdge = {
+          id: crypto.randomUUID(),
+          userId,
+          sourceId: dir.sourceId,
+          targetId: dir.targetId,
+          type: 'suggested_by_ai',
+          strength: 0.5,
+          createdAt: new Date(),
+        }
+        store.addEdge(edge)
+        db.beliefEdges.add(edge)
+      }
     }
     setAddedMissingLinks(prev => new Set(prev).add(index))
   }

@@ -75,7 +75,8 @@ export interface UserAccount {
   id: string
   username: string
   passwordHash: string
-  isPaid?: boolean             // 是否为付费用户
+  nickname?: string             // 用户昵称
+  isPaid?: boolean
   createdAt: Date
   reviewSettings?: {
     monthlyEnabled: boolean
@@ -124,34 +125,68 @@ class BeliefDB extends Dexie {
   }
 
   // ====== 账号操作 ======
-  async loginOrRegister(username: string, password: string): Promise<UserAccount> {
-    const existing = await this.userAccounts.where('username').equals(username).first()
 
+  /** 注册新账号 */
+  async register(username: string, password: string, nickname?: string): Promise<UserAccount> {
+    const existing = await this.userAccounts.where('username').equals(username).first()
     if (existing) {
-      // 登录：验证密码
-      const hash = await this.hashPassword(password)
-      if (existing.passwordHash !== hash) {
-        throw new Error('密码不正确')
-      }
-      return existing
-    } else {
-      // 注册
-      const id = crypto.randomUUID()
-      const hash = await this.hashPassword(password)
-      const account: UserAccount = {
-        id,
-        username,
-        passwordHash: hash,
-        createdAt: new Date(),
-        reviewSettings: {
-          monthlyEnabled: true,
-          weeklyEnabled: true,
-          dailyEnabled: true,
-        },
-        hasCompletedOnboarding: false,
-      }
-      await this.userAccounts.add(account)
-      return account
+      throw new Error('该账号名已被使用')
+    }
+    const id = crypto.randomUUID()
+    const hash = await this.hashPassword(password)
+    const account: UserAccount = {
+      id,
+      username,
+      nickname: nickname || username,
+      passwordHash: hash,
+      createdAt: new Date(),
+      reviewSettings: {
+        monthlyEnabled: true,
+        weeklyEnabled: true,
+        dailyEnabled: true,
+      },
+      hasCompletedOnboarding: false,
+    }
+    await this.userAccounts.add(account)
+    return account
+  }
+
+  /** 登录 */
+  async login(username: string, password: string): Promise<UserAccount> {
+    const existing = await this.userAccounts.where('username').equals(username).first()
+    if (!existing) {
+      throw new Error('账号不存在，请先注册')
+    }
+    const hash = await this.hashPassword(password)
+    if (existing.passwordHash !== hash) {
+      throw new Error('密码不正确')
+    }
+    return existing
+  }
+
+  /** 修改密码 */
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
+    const user = await this.userAccounts.get(userId)
+    if (!user) throw new Error('用户不存在')
+    const oldHash = await this.hashPassword(oldPassword)
+    if (user.passwordHash !== oldHash) {
+      throw new Error('原密码不正确')
+    }
+    const newHash = await this.hashPassword(newPassword)
+    await this.userAccounts.update(userId, { passwordHash: newHash })
+  }
+
+  /** 修改昵称 */
+  async updateNickname(userId: string, nickname: string): Promise<void> {
+    await this.userAccounts.update(userId, { nickname })
+  }
+
+  /** 将所有已存在用户的密码重置为 "12345678"（一次性迁移） */
+  async resetAllPasswords(): Promise<void> {
+    const newHash = await this.hashPassword('12345678')
+    const all = await this.userAccounts.toArray()
+    for (const user of all) {
+      await this.userAccounts.update(user.id, { passwordHash: newHash })
     }
   }
 

@@ -325,6 +325,13 @@ export default function BeliefCanvas() {
   }, [])
 
   const loadData = async (userId: string) => {
+    // 一次性迁移：重置所有旧用户密码为 12345678
+    const migrationKey = '__belief_pw_migrated_v8'
+    if (!localStorage.getItem(migrationKey)) {
+      await db.resetAllPasswords()
+      localStorage.setItem(migrationKey, '1')
+    }
+
     // 自动清理：删除 deletedAt 超过 7 天的节点
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const expired = await db.beliefNodes.where('deletedAt').below(cutoff).toArray()
@@ -1478,7 +1485,7 @@ export default function BeliefCanvas() {
 
       {/* 聚焦模式提示 */}
       {store.focusNodeId && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3">
+        <div className="absolute top-14 left-4 z-30 flex items-center gap-3">
           <div
             className="px-4 py-1.5 rounded-full flex items-center gap-2"
             style={{

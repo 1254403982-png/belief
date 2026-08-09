@@ -58,9 +58,8 @@ export interface ReviewResult {
 const API_URL = 'https://api.deepseek.com/chat/completions'
 const MODEL = 'deepseek-chat'
 
-// DeepSeek API Key（由开发者提供）
-// 替换为你的实际 API Key
-const DEEPSEEK_API_KEY = 'REPLACED_API_KEY'
+// DeepSeek API Key（从环境变量读取，不在代码中硬编码）
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
 async function deepseekChat(
   systemPrompt: string,

@@ -10,11 +10,11 @@ export function getNodeColor(type: string): string {
     case 'core_belief': return '#C8A96E'
     case 'sub_belief': return '#8BA4BC'
     case 'thought_emotion_pattern': return '#B8A0C8'
-    case 'thought':
-    case 'emotion': return '#C4B8B0'
+    case 'thought': return '#C0B878'
+    case 'emotion': return '#D4A0A0'
     case 'behavior': return '#A0B89A'
-    case 'material_reality': return '#B8A898'
-    case 'seed': return '#E8E0D8'
+    case 'material_reality': return '#A09080'
+    case 'seed': return '#D8D0B8'
     default: return '#C4B8B0'
   }
 }

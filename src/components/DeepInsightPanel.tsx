@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, type BeliefEdge, type ConversationSession } from '../db'
 import { traceBelief, continueTrace, type TraceResult } from '../utils/deepseek'
-import { getNodeColor, getTypeLabel, normalizeEdgeDirection, formatDate } from './utils'
+import { getNodeColor, getTypeLabel, normalizeEdgeDirection, formatDate, TYPE_HIERARCHY } from './utils'
 
 interface Props {
   open: boolean
@@ -291,23 +291,46 @@ export default function DeepInsightPanel({ open, onClose }: Props) {
       autoConnectToAnchor(id, userId, node.type)
     })
 
-    // 将添加的节点自动连线（链式连接），方向按层级调整
-    for (let i = 1; i < newIds.length; i++) {
-      const prevNode = store.nodes.find(n => n.id === newIds[i - 1])
-      const currNode = store.nodes.find(n => n.id === newIds[i])
-      if (!prevNode || !currNode) continue
-      const dir = normalizeEdgeDirection(newIds[i - 1], newIds[i], prevNode.type, currNode.type)
-      const edge: BeliefEdge = {
-        id: crypto.randomUUID(),
-        userId,
-        sourceId: dir.sourceId,
-        targetId: dir.targetId,
-        type: 'suggested_by_ai',
-        strength: 0.5,
-        createdAt: new Date(),
+    // 层级化连线：按信念层级构建树状结构
+    // core_belief → sub_belief → thought_emotion_pattern → thought/emotion → behavior → material_reality
+    // 每个层级的所有节点连接到下一层级的所有节点（扇形展开），而非串行链
+    // 注意：必须用 getState() 获取最新 state，因为 store.nodes 是渲染快照
+    const state = useBeliefStore.getState()
+    const addedNodes = newIds
+      .map(id => state.nodes.find(n => n.id === id))
+      .filter((n): n is BeliefNode => n != null)
+
+    // 按 TYPE_HIERARCHY 层级分组
+    const byLevel = new Map<number, BeliefNode[]>()
+    for (const node of addedNodes) {
+      const level = TYPE_HIERARCHY[node.type] ?? 99
+      if (!byLevel.has(level)) byLevel.set(level, [])
+      byLevel.get(level)!.push(node)
+    }
+
+    const levels = [...byLevel.keys()].sort((a, b) => a - b) // 深层(小数字) → 浅层(大数字)
+
+    // 在相邻层级之间：上层所有节点 → 下层所有节点
+    for (let li = 0; li < levels.length - 1; li++) {
+      const upperNodes = byLevel.get(levels[li])!   // 更深层
+      const lowerNodes = byLevel.get(levels[li + 1])! // 更浅层
+
+      for (const upper of upperNodes) {
+        for (const lower of lowerNodes) {
+          const dir = normalizeEdgeDirection(upper.id, lower.id, upper.type, lower.type)
+          const edge: BeliefEdge = {
+            id: crypto.randomUUID(),
+            userId,
+            sourceId: dir.sourceId,
+            targetId: dir.targetId,
+            type: 'suggested_by_ai',
+            strength: 0.5,
+            createdAt: new Date(),
+          }
+          store.addEdge(edge)
+          db.beliefEdges.add(edge)
+        }
       }
-      store.addEdge(edge)
-      db.beliefEdges.add(edge)
     }
 
     // 标记所有被接受且未被单独添加过的为已添加

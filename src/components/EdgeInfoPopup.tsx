@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db } from '../db'
-import { getTypeLabel, edgeTypeLabel } from './utils'
 
 interface Props {
   edgeId: string
@@ -90,11 +89,6 @@ export default function EdgeInfoPopup({ edgeId, screenX, screenY, onClose }: Pro
         >
           {target.content}
         </span>
-      </div>
-
-      {/* 连线类型 + 两端类型 */}
-      <div className="text-xs mb-2" style={{ color: '#9C9088' }}>
-        {edgeTypeLabel(edge.type)} · {getTypeLabel(source.type)} → {getTypeLabel(target.type)}
       </div>
 
       {/* 断开按钮 */}
