@@ -709,8 +709,19 @@ export default function BeliefCanvas() {
       const vpTop = (-h / 2 - offsetY) / scale - vpMargin
       const vpBottom = (h / 2 - offsetY) / scale + vpMargin
 
-      // 画节点
-      for (const node of nodes) {
+      // 画节点（按优先级排序：选中/聚焦优先 → z 深优先，保证重要节点文字不被遮挡）
+      const renderNodes = [...nodes].sort((a, b) => {
+        const aFocused = focusId && focusRelatedIds.has(a.id) ? 1 : 0
+        const bFocused = focusId && focusRelatedIds.has(b.id) ? 1 : 0
+        const aSelected = a.id === selectedNodeId && !focusId ? 1 : 0
+        const bSelected = b.id === selectedNodeId && !focusId ? 1 : 0
+        const aPrio = aFocused + aSelected
+        const bPrio = bFocused + bSelected
+        if (aPrio !== bPrio) return bPrio - aPrio
+        return (b.position.z ?? 0.5) - (a.position.z ?? 0.5)
+      })
+      const renderedTexts: Array<{ left: number; right: number; top: number; bottom: number }> = []
+      for (const node of renderNodes) {
         // 跳过已删除/释怀的节点（软删除）
         if (node.deletedAt) continue
         const { x, y } = node.position
@@ -814,29 +825,65 @@ export default function BeliefCanvas() {
         ctx.stroke()
         ctx.globalAlpha = 1
 
-        // 文字
+        // 文字（碰撞检测：避免重叠）
         if (scale > 0.6 && globalOpacity > 0.1) {
           const fullText = node.content
-          const maxWidth = 160 / scale // 根据缩放调整最大宽度
+          const maxWidth = 160 / scale
           const baseFontSize = Math.max(10, Math.min(12 / scale, 14))
-          // 长文字自动缩小字号
           const fontSize = fullText.length > 12
             ? Math.max(8, baseFontSize * (12 / fullText.length) * 1.6)
             : baseFontSize
           ctx.font = `${fontSize}px "Noto Sans SC", sans-serif`
-          ctx.fillStyle = '#4A4036'
-          ctx.textAlign = 'center'
-          ctx.globalAlpha = globalOpacity
-          // 超长文字换行显示
+
+          // 估算文字边界框
+          let textW: number, textH: number, textY: number
           if (fullText.length > 20) {
             const line1 = fullText.slice(0, Math.ceil(fullText.length / 2))
             const line2 = fullText.slice(Math.ceil(fullText.length / 2))
-            ctx.fillText(line1, x, y + displayR + fontSize + 3)
-            ctx.fillText(line2, x, y + displayR + fontSize * 2 + 5)
+            const w1 = ctx.measureText(line1).width
+            const w2 = ctx.measureText(line2).width
+            textW = Math.max(w1, w2)
+            textH = fontSize * 2 + 5
+            textY = y + displayR + fontSize + 3
           } else {
-            ctx.fillText(fullText, x, y + displayR + fontSize + 3)
+            textW = ctx.measureText(fullText).width
+            textH = fontSize + 6
+            textY = y + displayR + fontSize + 3
           }
-          ctx.globalAlpha = 1
+          const textLeft = x - textW / 2 - 4
+          const textRight = x + textW / 2 + 4
+          const textTop = textY - fontSize
+          const textBottom = textY + textH - fontSize
+
+          // 碰撞检测
+          let collides = false
+          for (const rt of renderedTexts) {
+            if (
+              textLeft < rt.right &&
+              textRight > rt.left &&
+              textTop < rt.bottom &&
+              textBottom > rt.top
+            ) {
+              collides = true
+              break
+            }
+          }
+
+          if (!collides) {
+            ctx.fillStyle = '#4A4036'
+            ctx.textAlign = 'center'
+            ctx.globalAlpha = globalOpacity
+            if (fullText.length > 20) {
+              const line1 = fullText.slice(0, Math.ceil(fullText.length / 2))
+              const line2 = fullText.slice(Math.ceil(fullText.length / 2))
+              ctx.fillText(line1, x, y + displayR + fontSize + 3)
+              ctx.fillText(line2, x, y + displayR + fontSize * 2 + 5)
+            } else {
+              ctx.fillText(fullText, x, y + displayR + fontSize + 3)
+            }
+            ctx.globalAlpha = 1
+            renderedTexts.push({ left: textLeft, right: textRight, top: textTop, bottom: textBottom })
+          }
         }
       }
 
