@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type DailyTask } from '../db'
 import { classifyInput, type ClassifyResult } from '../utils/deepseek'
-import { normalizeEdgeDirection } from './utils'
+import { normalizeEdgeDirection, findDuplicateNode } from './utils'
 import { getTypeLabel } from './utils'
 
 interface Props {
@@ -78,6 +78,14 @@ export default function DailyTaskPanel({ open, onClose, onTaskCountChange }: Pro
 
     const userId = localStorage.getItem('currentUserId')
     if (!userId) return
+
+    // 重复检测
+    const duplicate = findDuplicateNode(result.polishedContent, store.nodes)
+    if (duplicate) {
+      window.alert('这个想法已经存在了：\n"' + (duplicate.content.length > 30 ? duplicate.content.slice(0, 30) + '...' : duplicate.content) + '"')
+      setClassifyState({ stage: 'idle' })
+      return
+    }
 
     const node = {
       id: crypto.randomUUID(),

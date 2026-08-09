@@ -8,6 +8,7 @@ interface Props {
   error: boolean
   originalText: string
   result: ClassifyResult | null
+  duplicate?: { id: string; content: string } | null
   onAcceptAll: () => void
   onAcceptTypeOnly: () => void
   onKeepOriginal: () => void
@@ -20,6 +21,7 @@ export default function AISuggestionToast({
   error,
   originalText,
   result,
+  duplicate,
   onAcceptAll,
   onAcceptTypeOnly,
   onKeepOriginal,
@@ -57,8 +59,38 @@ export default function AISuggestionToast({
                 boxShadow: '0 4px 28px rgba(74, 64, 54, 0.08)',
               }}
             >
+              {/* 重复提示 */}
+              {duplicate && !loading && (
+                <div className="space-y-3">
+                  <p className="text-sm" style={{ color: '#4A4036' }}>
+                    💭 这个想法已经存在了
+                  </p>
+                  <p
+                    className="text-xs leading-relaxed px-3 py-2 rounded-lg"
+                    style={{
+                      backgroundColor: 'rgba(200, 169, 110, 0.06)',
+                      borderLeft: '2px solid #C8A96E',
+                      color: '#9C9088',
+                    }}
+                  >
+                    "{duplicate.content.length > 40 ? duplicate.content.slice(0, 40) + '...' : duplicate.content}"
+                  </p>
+                  <button
+                    className="text-sm px-4 py-1.5 rounded-full transition-all duration-200"
+                    style={{
+                      backgroundColor: 'rgba(200, 169, 110, 0.1)',
+                      color: '#5C4A3A',
+                      border: '1px solid rgba(200, 169, 110, 0.25)',
+                    }}
+                    onClick={onDismiss}
+                  >
+                    知道了
+                  </button>
+                </div>
+              )}
+
               {/* 加载态 */}
-              {loading && (
+              {!duplicate && loading && (
                 <div className="space-y-3">
                   <p className="text-sm" style={{ color: '#4A4036' }}>
                     {originalText.length > 30

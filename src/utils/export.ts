@@ -44,7 +44,7 @@ export async function exportAsMarkdown(userId: string): Promise<void> {
   // 按分类分组
   const byCategory = new Map<string, typeof nodes>()
   for (const n of nodes) {
-    const cat = n.category || 'other'
+    const cat = n.category || '未分类'
     if (!byCategory.has(cat)) byCategory.set(cat, [])
     byCategory.get(cat)!.push(n)
   }

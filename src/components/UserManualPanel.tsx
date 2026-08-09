@@ -225,7 +225,7 @@ function NodeGuide() {
 
       <GuideItem action="内容编辑" result="点击编辑按钮修改节点文字" />
       <GuideItem action="类型切换" result="8 种信念类型可选（核心信念→物质现实）" />
-      <GuideItem action="领域分类" result="10 个生活领域（学习/工作/金钱/感情等）" />
+      <GuideItem action="领域分类" result="9 个预设领域 + 自定义分类（学习/工作/金钱/感情等）" />
       <GuideItem action="态度标记" result="破除 / 坚定 / 观察 —— 标记你对这个信念的态度" />
       <GuideItem action="用户笔记" result="自由记录对这个信念的补充思考" />
       <GuideItem action="长期信念" result="标记后在「待坚定」列表中显示" />
@@ -478,7 +478,7 @@ function TypeGuide() {
             { emoji: '👨‍👩‍👧', label: '家庭' },
             { emoji: '💚', label: '健康' },
             { emoji: '🧘', label: '自我' },
-            { emoji: '🏷️', label: '其他' },
+            { emoji: '✨', label: '自定义分类' },
           ].map((c) => (
             <span
               key={c.label}

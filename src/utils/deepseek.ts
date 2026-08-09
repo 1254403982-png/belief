@@ -155,7 +155,7 @@ const CLASSIFY_SYSTEM = `你是一个温柔的内在觉察助手，名叫"信念
 - family（家庭）：父母、子女、家庭关系
 - health（健康）：身体、心理健康、运动
 - self（自我）：自我认知、个人成长、人生意义
-- other（其他）：无法归入以上领域
+- 如果无法归入以上领域，category 返回空字符串 ""
 
 只返回 JSON（不要 markdown）：
 {
@@ -695,7 +695,7 @@ function validateAttitude(value: unknown): 'break' | 'strengthen' | 'observe' | 
   return undefined
 }
 
-const VALID_CATEGORIES = new Set(['study', 'work', 'life', 'money', 'love', 'friendship', 'family', 'health', 'self', 'other'])
+const VALID_CATEGORIES = new Set(['study', 'work', 'life', 'money', 'love', 'friendship', 'family', 'health', 'self', 'other', ''])
 
 function validateCategory(value: unknown): import('../db').Category | undefined {
   if (typeof value === 'string' && VALID_CATEGORIES.has(value)) {

@@ -129,7 +129,6 @@ export const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; col
   family:      { label: '家庭', emoji: '👨‍👩‍👧', color: '#D4C0A0' },
   health:      { label: '健康', emoji: '💚', color: '#A0C8A0' },
   self:        { label: '自我', emoji: '🧘', color: '#C0B0D0' },
-  other:       { label: '其他', emoji: '🏷️', color: '#C4B8B0' },
 }
 
 export function getCategoryLabel(cat: string): string {
@@ -138,6 +137,21 @@ export function getCategoryLabel(cat: string): string {
 
 export function getCategoryEmoji(cat: string): string {
   return CATEGORY_CONFIG[cat]?.emoji ?? '🏷️'
+}
+
+// ====== 重复检测 ======
+
+/** 检查是否已存在相同内容的活跃节点 */
+export function findDuplicateNode(
+  content: string,
+  nodes: Array<{ id: string; content: string; deletedAt?: Date | null }>,
+): { id: string; content: string } | null {
+  const trimmed = content.trim()
+  if (!trimmed) return null
+  const existing = nodes.find(
+    n => !n.deletedAt && n.content.trim() === trimmed,
+  )
+  return existing ? { id: existing.id, content: existing.content } : null
 }
 
 // ====== 图遍历 ======

@@ -25,6 +25,7 @@ import {
   getConnectedComponent,
   getConnectedWithDistance,
   normalizeEdgeDirection,
+  findDuplicateNode,
 } from './utils'
 
 // ====== 坐标转换 ======
@@ -220,6 +221,7 @@ export default function BeliefCanvas() {
   const [aiToast, setAiToast] = useState<{
     visible: boolean; loading: boolean; error: boolean
     originalText: string; result: ClassifyResult | null
+    duplicate?: { id: string; content: string } | null
   }>({ visible: false, loading: false, error: false, originalText: '', result: null })
   const [deepInsightOpen, setDeepInsightOpen] = useState(false)
   const [reviewReminder, setReviewReminder] = useState<'monthly' | 'weekly' | 'daily' | null>(null)
@@ -436,6 +438,10 @@ export default function BeliefCanvas() {
 
   // ====== AI 输入处理 ======
   const createSeedNode = (content: string) => {
+    // 重复检测
+    const duplicate = findDuplicateNode(content, store.nodes)
+    if (duplicate) return
+
     const userId = getUserId()
     const node: BeliefNode = {
       id: crypto.randomUUID(),
@@ -460,6 +466,13 @@ export default function BeliefCanvas() {
   }
 
   const handleInputSubmit = async (content: string) => {
+    // 重复检测
+    const duplicate = findDuplicateNode(content, store.nodes)
+    if (duplicate) {
+      setAiToast({ visible: true, loading: false, error: false, originalText: content, result: null, duplicate })
+      return
+    }
+
     // AI 分类流程
     setAiToast({ visible: true, loading: true, error: false, originalText: content, result: null })
 
@@ -546,7 +559,8 @@ export default function BeliefCanvas() {
   }
 
   const handleDismissToast = () => {
-    if (aiToast.originalText) {
+    // 重复提示不创建节点，仅关闭
+    if (aiToast.originalText && !aiToast.duplicate) {
       createSeedNode(aiToast.originalText)
     }
     setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
@@ -1667,6 +1681,7 @@ export default function BeliefCanvas() {
         error={aiToast.error}
         originalText={aiToast.originalText}
         result={aiToast.result}
+        duplicate={aiToast.duplicate}
         onAcceptAll={handleAcceptAll}
         onAcceptTypeOnly={handleAcceptTypeOnly}
         onKeepOriginal={handleKeepOriginal}

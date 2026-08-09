@@ -244,7 +244,6 @@ export default function NodeDetailPanel() {
                     }}
                     onClick={() => {
                       const newCat: Category | undefined = selectedNode.category === cat ? undefined : cat
-                      // 同步到整条链路
                       const chainIds = getConnectedComponent(selectedNode.id, store.edges)
                       for (const nid of chainIds) {
                         store.updateNode(nid, { category: newCat })
@@ -255,6 +254,17 @@ export default function NodeDetailPanel() {
                     {getCategoryEmoji(cat)} {getCategoryLabel(cat)}
                   </button>
                 ))}
+                {/* 自定义分类按钮/输入 */}
+                <CustomCategoryInput
+                  currentNode={selectedNode}
+                  onSetCategory={(cat: string | undefined) => {
+                    const chainIds = getConnectedComponent(selectedNode.id, store.edges)
+                    for (const nid of chainIds) {
+                      store.updateNode(nid, { category: cat })
+                      db.beliefNodes.update(nid, { category: cat })
+                    }
+                  }}
+                />
               </div>
             </section>
 
@@ -449,6 +459,115 @@ export default function NodeDetailPanel() {
         </motion.div>
       )}
     </AnimatePresence>
+  )
+}
+
+// 自定义分类输入
+function CustomCategoryInput({
+  currentNode,
+  onSetCategory,
+}: {
+  currentNode: BeliefNode
+  onSetCategory: (cat: string | undefined) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const isCustom = currentNode.category && !CATEGORIES.includes(currentNode.category as any)
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          className="text-xs px-2.5 py-1 rounded-full outline-none transition-all"
+          style={{
+            backgroundColor: 'rgba(200, 169, 110, 0.06)',
+            color: '#4A4036',
+            border: '1px solid #E0D8CC',
+            width: 100,
+          }}
+          placeholder="分类名..."
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && value.trim()) {
+              onSetCategory(value.trim())
+              setEditing(false)
+              setValue('')
+            } else if (e.key === 'Escape') {
+              setEditing(false)
+              setValue('')
+            }
+          }}
+          autoFocus
+          onBlur={() => {
+            if (value.trim()) {
+              onSetCategory(value.trim())
+            }
+            setEditing(false)
+            setValue('')
+          }}
+        />
+        <button
+          className="text-xs hover:opacity-70"
+          style={{ color: '#5A7A68' }}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            if (value.trim()) onSetCategory(value.trim())
+            setEditing(false)
+            setValue('')
+          }}
+        >
+          ✓
+        </button>
+        <button
+          className="text-xs hover:opacity-70"
+          style={{ color: '#C8A080' }}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            setEditing(false)
+            setValue('')
+          }}
+        >
+          ✕
+        </button>
+      </span>
+    )
+  }
+
+  if (isCustom) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full ring-1"
+        style={{
+          backgroundColor: 'rgba(196, 184, 176, 0.18)',
+          color: '#5C4A3A',
+          border: '1px solid rgba(196, 184, 176, 0.35)',
+        }}
+      >
+        🏷️ {currentNode.category}
+        <button
+          className="ml-0.5 hover:opacity-70"
+          style={{ color: '#C8A080' }}
+          onClick={() => onSetCategory(undefined)}
+        >
+          ✕
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <button
+      className="text-xs px-2.5 py-1 rounded-full transition-all duration-200 hover:opacity-70"
+      style={{
+        backgroundColor: 'rgba(200, 169, 110, 0.04)',
+        color: '#9C9088',
+        border: '1px dashed #E0D8CC',
+      }}
+      onClick={() => setEditing(true)}
+    >
+      + 自定义分类
+    </button>
   )
 }
 

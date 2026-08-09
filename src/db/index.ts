@@ -5,10 +5,10 @@ import Dexie, { type Table } from 'dexie'
 export const CATEGORIES = [
   'study', 'work', 'life', 'money',
   'love', 'friendship', 'family', 'health',
-  'self', 'other',
+  'self',
 ] as const
 
-export type Category = typeof CATEGORIES[number]
+export type Category = string
 
 export interface BeliefNode {
   id: string
