@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../db'
 import { exportAsJSON, exportAsMarkdown } from '../utils/export'
+import { validateCode, getRemainingDays, getExpiryDate } from '../utils/activation'
 
 interface Props {
   open: boolean
@@ -18,6 +19,18 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
   const [monthlyEnabled, setMonthlyEnabled] = useState(true)
   const [weeklyEnabled, setWeeklyEnabled] = useState(true)
   const [dailyEnabled, setDailyEnabled] = useState(true)
+
+  // 激活码
+  const [activationCode, setActivationCode] = useState('')
+  const [activationCodeInput, setActivationCodeInput] = useState('')
+  const [activationStatus, setActivationStatus] = useState<{
+    isActivated: boolean
+    remainingDays: number
+    expiresAt: Date | null
+  }>({ isActivated: false, remainingDays: 0, expiresAt: null })
+  const [activating, setActivating] = useState(false)
+  const [actError, setActError] = useState('')
+  const [actSuccess, setActSuccess] = useState('')
 
   // 修改密码
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -46,6 +59,13 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
     setMonthlyEnabled(user.reviewSettings?.monthlyEnabled ?? true)
     setWeeklyEnabled(user.reviewSettings?.weeklyEnabled ?? true)
     setDailyEnabled(user.reviewSettings?.dailyEnabled ?? true)
+    // 加载激活状态
+    const status = await db.getActivationStatus(userId)
+    setActivationStatus(status)
+    setActivationCode(user.activationCode || '')
+    setActivationCodeInput('')
+    setActError('')
+    setActSuccess('')
     // 重置密码表单
     setShowChangePassword(false)
     setOldPassword('')
@@ -101,6 +121,36 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
       setPwError(err.message || '修改失败')
     } finally {
       setPwLoading(false)
+    }
+  }
+
+  // ====== 激活码 ======
+  const handleActivate = async () => {
+    setActError('')
+    setActSuccess('')
+    const code = activationCodeInput.trim()
+    if (!code) {
+      setActError('请输入激活码')
+      return
+    }
+    if (!validateCode(code)) {
+      setActError('激活码无效，请检查是否正确')
+      return
+    }
+    const userId = localStorage.getItem('currentUserId')
+    if (!userId) return
+    setActivating(true)
+    try {
+      await db.activate(userId, code)
+      const status = await db.getActivationStatus(userId)
+      setActivationStatus(status)
+      setActivationCode(code)
+      setActivationCodeInput('')
+      setActSuccess('激活成功！有效期 30 天')
+    } catch (err: any) {
+      setActError(err.message || '激活失败')
+    } finally {
+      setActivating(false)
     }
   }
 
@@ -188,7 +238,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
           />
 
           <motion.div
-            className="drawer-panel fixed right-0 top-0 bottom-0 w-80 z-30 flex flex-col"
+            className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
             initial={{ x: 320 }}
             animate={{ x: 0 }}
             exit={{ x: 320 }}
@@ -266,6 +316,80 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       </button>
                     )}
                   </div>
+                </div>
+              </section>
+
+              {/* ====== 激活码 ====== */}
+              <section className="space-y-3">
+                <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
+                  激活码
+                </label>
+                <div className="rounded-lg p-3 space-y-2.5" style={{
+                  backgroundColor: 'rgba(200, 169, 110, 0.04)',
+                  border: '1px solid rgba(200, 169, 110, 0.08)',
+                }}>
+                  {/* 激活状态 */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: '#9C9088' }}>状态</span>
+                    {activationStatus.isActivated ? (
+                      <span className="text-sm" style={{ color: '#5A7A68' }}>
+                        🌿 已激活 · 剩余 {activationStatus.remainingDays} 天
+                      </span>
+                    ) : (
+                      <span className="text-sm" style={{ color: '#C8A080' }}>
+                        未激活 · AI 功能受限
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 激活码输入 */}
+                  {!activationStatus.isActivated && (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          className="text-sm flex-1 px-2 py-1.5 rounded"
+                          style={{
+                            color: '#4A4036',
+                            backgroundColor: 'rgba(255,255,255,0.6)',
+                            border: '1px solid rgba(200, 169, 110, 0.25)',
+                          }}
+                          type="text"
+                          placeholder="输入激活码"
+                          value={activationCodeInput}
+                          onChange={(e) => setActivationCodeInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleActivate()
+                          }}
+                        />
+                        <button
+                          className="text-sm px-3 py-1.5 rounded-full transition-all hover:opacity-80 whitespace-nowrap"
+                          style={{
+                            backgroundColor: 'rgba(200, 169, 110, 0.12)',
+                            color: '#5C4A3A',
+                            border: '1px solid rgba(200, 169, 110, 0.2)',
+                            opacity: activating ? 0.6 : 1,
+                          }}
+                          onClick={handleActivate}
+                          disabled={activating}
+                        >
+                          {activating ? '激活中...' : '激活'}
+                        </button>
+                      </div>
+                      {actError && (
+                        <p className="text-xs" style={{ color: '#C8A080' }}>{actError}</p>
+                      )}
+                      {actSuccess && (
+                        <p className="text-xs" style={{ color: '#5A7A68' }}>{actSuccess}</p>
+                      )}
+                    </>
+                  )}
+
+                  {/* 已激活时显示到期信息 */}
+                  {activationStatus.isActivated && activationStatus.expiresAt && (
+                    <p className="text-xs" style={{ color: '#9C9088' }}>
+                      到期日：{activationStatus.expiresAt.toLocaleDateString('zh-CN')}
+                    </p>
+                  )}
                 </div>
               </section>
 

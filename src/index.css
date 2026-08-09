@@ -18,6 +18,8 @@
     color: #4A4036;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Safe area for iPhone notch */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* 温柔选中色 */

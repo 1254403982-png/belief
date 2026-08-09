@@ -82,7 +82,7 @@ export default function UserManualPanel({ open, onClose }: Props) {
       />
 
       <motion.div
-        className="drawer-panel fixed right-0 top-0 bottom-0 w-80 z-30 flex flex-col"
+        className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
         initial={{ x: 320 }}
         animate={{ x: 0 }}
         exit={{ x: 320 }}

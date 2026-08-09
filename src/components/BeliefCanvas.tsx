@@ -256,6 +256,11 @@ export default function BeliefCanvas() {
   // 拖拽偏移：点击位置相对于节点中心的世界坐标偏移
   const dragOffsetRef = useRef({ x: 0, y: 0 })
 
+  // 双指缩放（触摸）
+  const pinchDistRef = useRef(0)        // 初始双指距离
+  const pinchScaleRef = useRef(1)       // 初始缩放值
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+
   // 释怀粒子系统
   interface ReleaseParticle {
     nodeId: string
@@ -305,23 +310,21 @@ export default function BeliefCanvas() {
     if (authCheckedRef.current) return
     authCheckedRef.current = true
 
-    // 浏览器刷新检测：window.__fromLogin 是运行时标记，刷新后自动消失
-    const fromLogin = (window as any).__fromLogin
-    delete (window as any).__fromLogin
-
-    if (!fromLogin) {
-      // 非登录后进入（刷新 / 直接访问 /canvas）→ 回到首页
-      localStorage.removeItem('currentUserId')
-      navigate('/', { replace: true })
-      return
-    }
-
     const userId = localStorage.getItem('currentUserId')
     if (!userId) {
       navigate('/', { replace: true })
       return
     }
-    loadData(userId)
+
+    // 验证用户存在于数据库
+    db.userAccounts.get(userId).then(user => {
+      if (!user) {
+        localStorage.removeItem('currentUserId')
+        navigate('/', { replace: true })
+        return
+      }
+      loadData(userId)
+    })
   }, [])
 
   const loadData = async (userId: string) => {
@@ -960,11 +963,24 @@ export default function BeliefCanvas() {
     }
   }, [])
 
-  // ====== 鼠标事件 ======
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // ====== 指针事件（统一鼠标+触摸）======
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     lastActivityRef.current = Date.now()
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // 捕获指针以确保后续事件
+    canvas.setPointerCapture(e.pointerId)
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    // 双指缩放：记录初始距离
+    if (activePointersRef.current.size === 2) {
+      const pts = Array.from(activePointersRef.current.values())
+      pinchDistRef.current = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+      pinchScaleRef.current = useBeliefStore.getState().viewState.scale
+      return
+    }
+
     const rect = canvas.getBoundingClientRect()
     const sx = e.clientX - rect.left
     const sy = e.clientY - rect.top
@@ -974,7 +990,7 @@ export default function BeliefCanvas() {
     const hit = hitTest(world.x, world.y, state.nodes)
 
     if (e.button === 2) {
-      // 右键
+      // 右键（仅鼠标）
       e.preventDefault()
       if (hit) {
         setContextMenu({ x: e.clientX, y: e.clientY, node: hit })
@@ -982,7 +998,7 @@ export default function BeliefCanvas() {
       return
     }
 
-    if (e.button === 0) {
+    if (e.button === 0 || e.pointerType === 'touch') {
       if (hit) {
         // 连接模式：点击第二个节点创建连线
         if (connectMode && hit.id !== connectMode) {
@@ -1062,10 +1078,30 @@ export default function BeliefCanvas() {
     }
   }, [connectMode])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     lastActivityRef.current = Date.now()
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // 更新指针位置
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    // 双指缩放
+    if (activePointersRef.current.size === 2) {
+      if (inertiaAnimRef.current) {
+        cancelAnimationFrame(inertiaAnimRef.current)
+        inertiaAnimRef.current = null
+      }
+      const pts = Array.from(activePointersRef.current.values())
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+      if (pinchDistRef.current > 0) {
+        const ratio = dist / pinchDistRef.current
+        const newScale = Math.max(0.25, Math.min(2.5, pinchScaleRef.current * ratio))
+        store.setViewState({ scale: newScale })
+      }
+      return
+    }
+
     const rect = canvas.getBoundingClientRect()
 
     // 长按移动超出阈值 → 取消长按计时
@@ -1144,8 +1180,15 @@ export default function BeliefCanvas() {
     }
   }, [isPanning, panStart, isDraggingNode, dragNodeId])
 
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     lastActivityRef.current = Date.now()
+
+    // 释放指针
+    activePointersRef.current.delete(e.pointerId)
+
+    // 清理双指缩放状态
+    pinchDistRef.current = 0
+
     // 取消长按计时
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
@@ -1322,13 +1365,13 @@ export default function BeliefCanvas() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 z-0"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
-        style={{ cursor: isDraggingNode ? 'grabbing' : isPanning ? 'grabbing' : 'grab' }}
+        style={{ cursor: isDraggingNode ? 'grabbing' : isPanning ? 'grabbing' : 'grab', touchAction: 'none' }}
       />
 
       {/* 梳理提醒 */}

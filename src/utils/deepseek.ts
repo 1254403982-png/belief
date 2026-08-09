@@ -5,6 +5,7 @@
  * 任何失败都返回 null，调用方据此降级为手动模式。
  */
 import type { BeliefNode, BeliefEdge } from '../db'
+import { db } from '../db'
 
 // ====== 类型定义 ======
 
@@ -61,11 +62,30 @@ const MODEL = 'deepseek-chat'
 // DeepSeek API Key（从环境变量读取，不在代码中硬编码）
 const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
+/**
+ * 获取当前用户的 API Key 和激活状态
+ * 优先使用环境变量中的 API Key
+ */
+async function getApiKey(): Promise<{ key: string; isActivated: boolean }> {
+  const userId = localStorage.getItem('currentUserId')
+  if (!userId) return { key: DEEPSEEK_API_KEY, isActivated: false }
+
+  try {
+    const status = await db.getActivationStatus(userId)
+    return { key: DEEPSEEK_API_KEY, isActivated: status.isActivated }
+  } catch {
+    return { key: DEEPSEEK_API_KEY, isActivated: false }
+  }
+}
+
 async function deepseekChat(
   systemPrompt: string,
   userMessage: string,
   options?: { timeout?: number; maxTokens?: number; previousMessages?: Array<{ role: string; content: string }> },
 ): Promise<Record<string, unknown> | null> {
+  const { key, isActivated } = await getApiKey()
+  if (!key || !isActivated) return null
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options?.timeout ?? 20_000)
 
@@ -74,7 +94,7 @@ async function deepseekChat(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
         model: MODEL,
