@@ -1,0 +1,1821 @@
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useBeliefStore } from '../stores/useBeliefStore'
+import { db, type BeliefNode, type BeliefEdge, type DailyTask } from '../db'
+import NodeDetailPanel from './NodeDetailPanel'
+import BeliefDrawer from './BeliefDrawer'
+import AISuggestionToast from './AISuggestionToast'
+import DeepInsightPanel from './DeepInsightPanel'
+import SettingsPanel from './SettingsPanel'
+import ReviewPanel from './ReviewPanel'
+import EdgeInfoPopup from './EdgeInfoPopup'
+import ThoughtJournalPanel from './ThoughtJournalPanel'
+import ChainExplorePanel from './ChainExplorePanel'
+import DailyTaskPanel from './DailyTaskPanel'
+import UserManualPanel from './UserManualPanel'
+import { classifyInput, type ClassifyResult } from '../utils/deepseek'
+import {
+  getNodeColor,
+  getNodeRadius,
+  getTypeLabel,
+  getEdgeColor,
+  canConnect,
+  hexToRgba,
+  TYPE_HIERARCHY,
+  getConnectedComponent,
+  getConnectedWithDistance,
+  normalizeEdgeDirection,
+} from './utils'
+
+// ====== 坐标转换 ======
+
+function screenToWorld(
+  sx: number, sy: number,
+  canvasW: number, canvasH: number,
+  offsetX: number, offsetY: number, scale: number
+): { x: number; y: number } {
+  return {
+    x: (sx - canvasW / 2 - offsetX) / scale,
+    y: (sy - canvasH / 2 - offsetY) / scale,
+  }
+}
+
+// ====== 命中检测 ======
+function hitTest(
+  worldX: number, worldY: number,
+  nodes: BeliefNode[]
+): BeliefNode | null {
+  // 从上层开始检测（后画的在上面）
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i]
+    const r = getNodeRadius(n.type) + 6 // 加一点容错
+    const dx = worldX - n.position.x
+    const dy = worldY - n.position.y
+    if (dx * dx + dy * dy <= r * r) {
+      return n
+    }
+  }
+  return null
+}
+
+// 连线命中检测：点到线段的最短距离 < 阈值
+function edgeHitTest(
+  worldX: number, worldY: number,
+  nodes: BeliefNode[],
+  edges: BeliefEdge[],
+  threshold: number = 10
+): string | null {
+  for (const edge of edges) {
+    const source = nodes.find(n => n.id === edge.sourceId)
+    const target = nodes.find(n => n.id === edge.targetId)
+    if (!source || !target) continue
+    if (source.deletedAt || target.deletedAt) continue
+    const dist = pointToSegmentDist(
+      worldX, worldY,
+      source.position.x, source.position.y,
+      target.position.x, target.position.y
+    )
+    if (dist < threshold) return edge.id
+  }
+  return null
+}
+
+function pointToSegmentDist(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number
+): number {
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  const nearX = ax + t * dx
+  const nearY = ay + t * dy
+  return Math.sqrt((px - nearX) ** 2 + (py - nearY) ** 2)
+}
+
+// ====== ContextMenu 组件 ======
+function ContextMenu({
+  x, y, node, onClose, onConnect,
+}: {
+  x: number; y: number
+  node: BeliefNode
+  onClose: () => void
+  onConnect: (nodeId: string) => void
+}) {
+  const store = useBeliefStore()
+
+  const actions = [
+    {
+      label: '🔗 建立连接',
+      action: () => {
+        onConnect(node.id)
+      },
+    },
+    {
+      label: '标记为待清理',
+      action: () => {
+        store.updateNode(node.id, { markedForReview: true })
+        db.beliefNodes.update(node.id, { markedForReview: true })
+      },
+    },
+    {
+      label: node.isLongTerm ? '取消长期信念' : '标记为长期信念',
+      action: () => {
+        store.updateNode(node.id, { isLongTerm: !node.isLongTerm })
+        db.beliefNodes.update(node.id, { isLongTerm: !node.isLongTerm })
+      },
+    },
+    {
+      label: '删除',
+      action: () => {
+        store.updateNode(node.id, { deletedAt: new Date() })
+        db.beliefNodes.update(node.id, { deletedAt: new Date() })
+      },
+      danger: true,
+    },
+    {
+      label: '删除整条链条',
+      action: () => {
+        const chainIds = getConnectedComponent(node.id, store.edges)
+        const now = new Date()
+        for (const nid of chainIds) {
+          store.updateNode(nid, { deletedAt: now })
+          db.beliefNodes.update(nid, { deletedAt: now })
+        }
+      },
+      danger: true,
+    },
+  ]
+
+  useEffect(() => {
+    const handler = () => onClose()
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [])
+
+  return (
+    <div
+      className="fixed z-50 py-1 rounded-lg shadow-sm"
+      style={{
+        left: x,
+        top: y,
+        backgroundColor: 'rgba(255, 251, 245, 0.96)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid #E0D8CC',
+        minWidth: 160,
+      }}
+    >
+      {actions.map((a) => (
+        <button
+          key={a.label}
+          className="w-full text-left px-4 py-2 text-sm hover:opacity-80 transition-opacity"
+          style={{ color: a.danger ? '#C8A080' : '#4A4036' }}
+          onClick={(e) => {
+            e.stopPropagation()
+            a.action()
+            onClose()
+          }}
+        >
+          {a.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ====== 主组件 ======
+export default function BeliefCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const store = useBeliefStore()
+
+  // 交互状态
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  const [isDraggingNode, setIsDraggingNode] = useState(false)
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null)
+  const [dragNodeStart, setDragNodeStart] = useState({ x: 0, y: 0 })
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: BeliefNode } | null>(null)
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [connectMode, setConnectMode] = useState<string | null>(null) // 连接模式：source node id
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [journalOpen, setJournalOpen] = useState(false)
+  const [chainExploreOpen, setChainExploreOpen] = useState(false)
+  const [chainExploreNodeIds, setChainExploreNodeIds] = useState<Set<string>>(new Set())
+  const [onboardingStep, setOnboardingStep] = useState(0) // 0=未开始, 1-3=引导步骤
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [dailyPanelOpen, setDailyPanelOpen] = useState(false)
+  const [dailyTaskCount, setDailyTaskCount] = useState(0)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [edgePopup, setEdgePopup] = useState<{ edgeId: string; screenX: number; screenY: number } | null>(null)
+  const selectedEdgeRef = useRef<string | null>(null)
+
+  // AI 建议状态
+  const [aiToast, setAiToast] = useState<{
+    visible: boolean; loading: boolean; error: boolean
+    originalText: string; result: ClassifyResult | null
+  }>({ visible: false, loading: false, error: false, originalText: '', result: null })
+  const [deepInsightOpen, setDeepInsightOpen] = useState(false)
+  const [reviewReminder, setReviewReminder] = useState<'monthly' | 'weekly' | 'daily' | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewType, setReviewType] = useState<'monthly' | 'weekly' | 'daily'>('monthly')
+  // 梳理提醒
+  // 同步 ref 给渲染循环用
+  useEffect(() => { selectedEdgeRef.current = selectedEdgeId }, [selectedEdgeId])
+  const mountedRef = useRef(false)
+
+  // 力导向布局
+  const forceVelocitiesRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const [forceEnabled, setForceEnabled] = useState(false)
+  const forceEnabledRef = useRef(false)
+  useEffect(() => { forceEnabledRef.current = forceEnabled }, [forceEnabled])
+  const forceFrameCountRef = useRef(0)
+
+  // 长按聚焦
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const focusAlphaRef = useRef(0) // 聚焦过渡 alpha：0=全景, 1=聚焦
+  const LONG_PRESS_DURATION = 600
+  const LONG_PRESS_MOVE_THRESHOLD = 8 // 像素，超过此移动距离取消长按
+
+  // 惯性滑行
+  const inertiaAnimRef = useRef<number | null>(null)
+  const velocityRef = useRef({ x: 0, y: 0 })
+  const lastPanTimeRef = useRef(0)
+  const lastPanPosRef = useRef({ x: 0, y: 0 })
+  const DRAG_CONNECT_DISTANCE = 30 // 拖拽节点到另一节点附近的连线距离阈值（屏幕像素）
+
+  // 链式拖拽：记录拖动开始时链上各节点的原始位置
+  const chainOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  // 拖拽偏移：点击位置相对于节点中心的世界坐标偏移
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+
+  // 释怀粒子系统
+  interface ReleaseParticle {
+    nodeId: string
+    x: number; y: number
+    vx: number; vy: number
+    alpha: number
+    color: string
+    size: number
+  }
+  const releaseParticlesRef = useRef<ReleaseParticle[]>([])
+  const releaseTimersRef = useRef<Map<string, number>>(new Map()) // nodeId → startTime
+  const RELEASE_DURATION = 2500 // 2.5 秒释怀动画（缓慢优雅）
+  const MAX_PAN_RADIUS = 500 // 画布最大平移半径（世界坐标），超出即回弹
+
+  // 性能优化：空闲降帧
+  const lastActivityRef = useRef(Date.now())
+  const idleFrameRef = useRef<number | null>(null)
+  const IDLE_THRESHOLD = 3000 // 3 秒无交互降为 ~10fps
+
+  /** 基于节点质心限制 offset，防止用户拖太远找不到节点 */
+  const clampOffset = useCallback((ox: number, oy: number) => {
+    const nodes = useBeliefStore.getState().nodes
+    if (nodes.length === 0) return { ox, oy }
+
+    // 计算节点质心（世界坐标）
+    let cx = 0, cy = 0
+    for (const n of nodes) { cx += n.position.x; cy += n.position.y }
+    cx /= nodes.length
+    cy /= nodes.length
+
+    // 屏幕中心应对齐质心 → offsetX = -cx, offsetY = -cy 时质心在正中间
+    // 允许在质心周围 MAX_PAN_RADIUS 范围内平移
+    const baseOX = -cx
+    const baseOY = -cy
+    return {
+      ox: Math.max(baseOX - MAX_PAN_RADIUS, Math.min(baseOX + MAX_PAN_RADIUS, ox)),
+      oy: Math.max(baseOY - MAX_PAN_RADIUS, Math.min(baseOY + MAX_PAN_RADIUS, oy)),
+    }
+  }, [])
+
+  // 力导向布局
+  // 登录检查 + 加载数据
+  // 防止 StrictMode 双重 effect 导致误判
+  const authCheckedRef = useRef(false)
+
+  useEffect(() => {
+    if (authCheckedRef.current) return
+    authCheckedRef.current = true
+
+    // 浏览器刷新检测：window.__fromLogin 是运行时标记，刷新后自动消失
+    const fromLogin = (window as any).__fromLogin
+    delete (window as any).__fromLogin
+
+    if (!fromLogin) {
+      // 非登录后进入（刷新 / 直接访问 /canvas）→ 回到首页
+      localStorage.removeItem('currentUserId')
+      navigate('/', { replace: true })
+      return
+    }
+
+    const userId = localStorage.getItem('currentUserId')
+    if (!userId) {
+      navigate('/', { replace: true })
+      return
+    }
+    loadData(userId)
+  }, [])
+
+  const loadData = async (userId: string) => {
+    // 自动清理：删除 deletedAt 超过 7 天的节点
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const expired = await db.beliefNodes.where('deletedAt').below(cutoff).toArray()
+    for (const n of expired) {
+      await db.beliefNodes.delete(n.id)
+      await db.beliefEdges.where('sourceId').equals(n.id).or('targetId').equals(n.id).delete()
+    }
+
+    const allNodes = await db.beliefNodes.where('userId').equals(userId).toArray()
+    // 过滤软删除的节点（不显示在画布上）
+    const nodes = allNodes.filter(n => !n.deletedAt)
+    const activeIds = new Set(nodes.map(n => n.id))
+    const allEdges = await db.beliefEdges.where('userId').equals(userId).toArray()
+    // 过滤掉连向已删除节点的边
+    const edges = allEdges.filter(e => activeIds.has(e.sourceId) && activeIds.has(e.targetId))
+    if (nodes.length > 0) store.setNodes(nodes)
+    if (edges.length > 0) store.setEdges(edges)
+
+    // 登录后入场动画：短暂启动力导向，让节点有轻微弹性移动
+    if (nodes.length > 1) {
+      setForceEnabled(true)
+      setTimeout(() => {
+        setForceEnabled(false)
+      }, 4000) // 4 秒后自动停止
+    }
+
+    // 新手引导检查
+    const user = await db.userAccounts.get(userId)
+    if (user && !user.hasCompletedOnboarding && nodes.length === 0) {
+      setOnboardingStep(1)
+    }
+
+    // 梳理提醒检查
+    if (user?.reviewSettings) {
+      const { monthlyEnabled, weeklyEnabled, lastMonthlyReview, lastWeeklyReview } = user.reviewSettings
+      const now = Date.now()
+      if (monthlyEnabled) {
+        const lastMonthly = lastMonthlyReview ? new Date(lastMonthlyReview).getTime() : 0
+        if (now - lastMonthly > 30 * 24 * 60 * 60 * 1000) {
+          const longTermCount = nodes.filter(n => n.isLongTerm).length
+          if (longTermCount >= 2) {
+            setReviewReminder('monthly')
+          }
+        }
+      }
+      if (weeklyEnabled && !reviewReminder) {
+        const lastWeekly = lastWeeklyReview ? new Date(lastWeeklyReview).getTime() : 0
+        if (now - lastWeekly > 7 * 24 * 60 * 60 * 1000) {
+          const markedCount = nodes.filter(n => n.markedForReview).length
+          if (markedCount >= 1) {
+            setReviewReminder('weekly')
+          }
+        }
+      }
+      // 每日待办提醒：检查昨天及以前是否有未完成的待办
+      if (user.reviewSettings.dailyEnabled && !reviewReminder) {
+        const today = new Date().toISOString().slice(0, 10)
+        const pendingCount = await db.dailyTasks
+          .where('userId').equals(userId)
+          .and(t => t.status === 'pending' && t.date < today)
+          .count()
+        if (pendingCount > 0) {
+          setReviewReminder('daily')
+        }
+      }
+    }
+
+    // 加载今日待办计数
+    const userId2 = getUserId()
+    if (userId2) {
+      const today = new Date().toISOString().slice(0, 10)
+      const count = await db.dailyTasks
+        .where('userId').equals(userId2)
+        .and(t => t.status === 'pending' && t.date === today)
+        .count()
+      setDailyTaskCount(count)
+    }
+  }
+
+  const completeOnboarding = async () => {
+    setOnboardingStep(0)
+    const userId = getUserId()
+    if (userId) {
+      await db.userAccounts.update(userId, { hasCompletedOnboarding: true })
+    }
+  }
+
+  const getUserId = () => localStorage.getItem('currentUserId') || ''
+
+  // ====== 今日待办 ======
+  const saveDailyTask = async (content: string) => {
+    const userId = getUserId()
+    if (!userId || !content) return
+    const today = new Date().toISOString().slice(0, 10)
+    const task: DailyTask = {
+      id: crypto.randomUUID(),
+      userId,
+      content,
+      date: today,
+      status: 'pending',
+      createdAt: new Date(),
+    }
+    await db.dailyTasks.add(task)
+    setDailyTaskCount(c => c + 1)
+  }
+
+  // ====== AI 输入处理 ======
+  const createSeedNode = (content: string) => {
+    const userId = getUserId()
+    const node: BeliefNode = {
+      id: crypto.randomUUID(),
+      userId,
+      type: 'seed',
+      content,
+      position: {
+        x: (Math.random() - 0.5) * 400,
+        y: (Math.random() - 0.5) * 400,
+        z: Math.random(),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: 'active',
+    }
+    store.addNode(node)
+    db.beliefNodes.add(node)
+  }
+
+  const getExistingNodesSummary = () => {
+    return store.nodes.filter(n => !n.deletedAt).map(n => ({ id: n.id, content: n.content, type: n.type }))
+  }
+
+  const handleInputSubmit = async (content: string) => {
+    // AI 分类流程
+    setAiToast({ visible: true, loading: true, error: false, originalText: content, result: null })
+
+    const result = await classifyInput(content, getExistingNodesSummary())
+    if (!result) {
+      setAiToast({ visible: true, loading: false, error: true, originalText: content, result: null })
+      return
+    }
+
+    setAiToast({ visible: true, loading: false, error: false, originalText: content, result })
+  }
+
+  const handleAcceptAll = () => {
+    const { originalText, result } = aiToast
+    if (!result) return
+    const userId = getUserId()
+    const node: BeliefNode = {
+      id: crypto.randomUUID(),
+      userId,
+      type: result.type,
+      content: result.polishedContent || originalText,
+      category: result.category,
+      position: {
+        x: (Math.random() - 0.5) * 400,
+        y: (Math.random() - 0.5) * 400,
+        z: Math.random(),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: 'active',
+    }
+    store.addNode(node)
+    db.beliefNodes.add(node)
+
+    // 自动连线
+    for (const relatedId of result.relatedNodeIds) {
+      const relatedNode = store.nodes.find(n => n.id === relatedId)
+      if (relatedNode) {
+        const dir = normalizeEdgeDirection(relatedId, node.id, relatedNode.type, node.type)
+        const edge: BeliefEdge = {
+          id: crypto.randomUUID(),
+          userId,
+          sourceId: dir.sourceId,
+          targetId: dir.targetId,
+          type: 'suggested_by_ai',
+          strength: 0.5,
+          createdAt: new Date(),
+        }
+        store.addEdge(edge)
+        db.beliefEdges.add(edge)
+      }
+    }
+    setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
+  }
+
+  const handleAcceptTypeOnly = () => {
+    const { originalText, result } = aiToast
+    if (!result) return
+    const userId = getUserId()
+    const node: BeliefNode = {
+      id: crypto.randomUUID(),
+      userId,
+      type: result.type,
+      content: originalText,
+      position: {
+        x: (Math.random() - 0.5) * 400,
+        y: (Math.random() - 0.5) * 400,
+        z: Math.random(),
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: 'active',
+    }
+    store.addNode(node)
+    db.beliefNodes.add(node)
+    setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
+  }
+
+  const handleKeepOriginal = () => {
+    if (aiToast.originalText) {
+      createSeedNode(aiToast.originalText)
+    }
+    setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
+  }
+
+  const handleDismissToast = () => {
+    if (aiToast.originalText) {
+      createSeedNode(aiToast.originalText)
+    }
+    setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
+  }
+
+  // ====== Canvas 渲染（只挂载一次，每帧从 store 读最新状态，不因缩放/数据变化重建循环）======
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const dpr = window.devicePixelRatio || 1
+    let w = window.innerWidth
+    let h = window.innerHeight
+
+    const resize = () => {
+      w = window.innerWidth
+      h = window.innerHeight
+      canvas.width = w * dpr
+      canvas.height = h * dpr
+      canvas.style.width = w + 'px'
+      canvas.style.height = h + 'px'
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const render = () => {
+      // 每帧直接从 Zustand store 读取最新状态，避免闭包陈旧引用
+      const { nodes, edges, viewState, selectedNodeId, focusNodeId } = useBeliefStore.getState()
+      const now = Date.now()
+
+      // 有活跃动画时保持 60fps（重置空闲计时器）
+      const hasParticles = releaseParticlesRef.current.length > 0
+      const hasFadingNodes = releaseTimersRef.current.size > 0
+      const hasInertia = inertiaAnimRef.current !== null
+      if (hasParticles || hasFadingNodes || hasInertia || forceEnabledRef.current) {
+        lastActivityRef.current = now
+      }
+      const { offsetX, offsetY, scale } = viewState
+      const focusId = focusNodeId
+
+      // 弹性缩放边界：超出软限制时自动回弹
+      const SOFT_MIN = 0.3
+      const SOFT_MAX = 2.0
+      if (scale < SOFT_MIN || scale > SOFT_MAX) {
+        const targetScale = Math.max(SOFT_MIN, Math.min(SOFT_MAX, scale))
+        const springScale = scale + (targetScale - scale) * 0.15
+        if (Math.abs(springScale - targetScale) < 0.002) {
+          store.setViewState({ scale: targetScale })
+        } else {
+          store.setViewState({ scale: springScale })
+        }
+      }
+
+      // 聚焦过渡 lerp：平滑淡入/淡出
+      const targetFocusAlpha = focusId ? 1 : 0
+      const lerpSpeed = 0.08
+      focusAlphaRef.current += (targetFocusAlpha - focusAlphaRef.current) * lerpSpeed
+      const fa = focusAlphaRef.current
+
+      // 重置变换并清屏
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      ctx.fillStyle = '#FAF7F2'
+      ctx.fillRect(0, 0, w, h)
+
+      // 应用画布变换
+      ctx.save()
+      ctx.translate(w / 2 + offsetX, h / 2 + offsetY)
+      ctx.scale(scale, scale)
+
+      // 确定聚焦模式下的相关节点（BFS 整条链路）
+      const focusRelatedIds: Set<string> = focusId
+        ? getConnectedComponent(focusId, edges)
+        : new Set()
+
+      // 画连线
+      for (const edge of edges) {
+        const source = nodes.find((n) => n.id === edge.sourceId)
+        const target = nodes.find((n) => n.id === edge.targetId)
+        if (!source || !target) continue
+        if (source.deletedAt || target.deletedAt) continue
+
+        const isFocused = focusId && (focusRelatedIds.has(edge.sourceId) && focusRelatedIds.has(edge.targetId))
+        const dimOpacity = 0.5 + (0.18 - 0.5) * fa
+        const opacity = focusId && !isFocused ? dimOpacity : 0.5
+        const width = isFocused && fa > 0.5 ? 2.5 : 1.5
+        // 按节点类型连线颜色
+        const baseEdgeColor = getEdgeColor(source.type, target.type)
+        const color = isFocused && fa > 0.5
+          ? '#D4A843'
+          : hexToRgba(baseEdgeColor, opacity)
+
+        ctx.beginPath()
+        ctx.moveTo(source.position.x, source.position.y)
+        ctx.lineTo(target.position.x, target.position.y)
+        ctx.strokeStyle = color
+        ctx.lineWidth = width / scale
+        ctx.stroke()
+
+        // 微小箭头指示方向（源→目标：深层→浅层）
+        const ax = target.position.x
+        const ay = target.position.y
+        const dx = ax - source.position.x
+        const dy = ay - source.position.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist > 0) {
+          const ux = dx / dist
+          const uy = dy / dist
+          const arrowSize = 5 / scale
+          // 箭头尖端在目标节点边缘，向后偏移
+          const tipX = ax - ux * getNodeRadius(target.type)
+          const tipY = ay - uy * getNodeRadius(target.type)
+          const baseX = tipX - ux * arrowSize * 2
+          const baseY = tipY - uy * arrowSize * 2
+          const leftX = baseX - uy * arrowSize
+          const leftY = baseY + ux * arrowSize
+          const rightX = baseX + uy * arrowSize
+          const rightY = baseY - ux * arrowSize
+          ctx.beginPath()
+          ctx.moveTo(tipX, tipY)
+          ctx.lineTo(leftX, leftY)
+          ctx.lineTo(rightX, rightY)
+          ctx.closePath()
+          ctx.fillStyle = color
+          ctx.fill()
+        }
+
+        // 选中连线高亮
+        if (edge.id === selectedEdgeRef.current) {
+          ctx.beginPath()
+          ctx.moveTo(source.position.x, source.position.y)
+          ctx.lineTo(target.position.x, target.position.y)
+          ctx.strokeStyle = 'rgba(212, 168, 67, 0.5)'
+          ctx.lineWidth = 5 / scale
+          ctx.stroke()
+        }
+      }
+
+      // 视口裁剪：计算世界坐标下的可见区域
+      const vpMargin = 80
+      const vpLeft = (-w / 2 - offsetX) / scale - vpMargin
+      const vpRight = (w / 2 - offsetX) / scale + vpMargin
+      const vpTop = (-h / 2 - offsetY) / scale - vpMargin
+      const vpBottom = (h / 2 - offsetY) / scale + vpMargin
+
+      // 画节点
+      for (const node of nodes) {
+        // 跳过已删除/释怀的节点（软删除）
+        if (node.deletedAt) continue
+        const { x, y } = node.position
+        // 跳过视口外的节点
+        if (x < vpLeft || x > vpRight || y < vpTop || y > vpBottom) continue
+        const isFocused = focusId && focusRelatedIds.has(node.id)
+        const isSelected = node.id === selectedNodeId && !focusId
+        const baseRadius = getNodeRadius(node.type)
+        // 呼吸动画：选中节点 3s 周期 ±6%，聚焦节点 ±3%
+        const breathPhase = now * 0.002094 // 2π/3000
+        const breathScale = isSelected
+          ? 1 + Math.sin(breathPhase) * 0.06
+          : isFocused
+            ? 1 + Math.sin(breathPhase) * 0.03
+            : 1
+        const r = (isSelected ? baseRadius + 4 : isFocused ? baseRadius + 5 : baseRadius) * breathScale
+
+        // 释怀动画：fading 节点逐渐透明 + 缩小 + 持续慢飘粒子
+        let releaseAlpha = 1
+        let releaseScale = 1
+        if (node.status === 'fading') {
+          const timers = releaseTimersRef.current
+          if (!timers.has(node.id)) {
+            timers.set(node.id, Date.now())
+            // 一次性生成所有粒子（会在整个动画期间慢慢飘散消失）
+            const nodeColor = getNodeColor(node.type)
+            for (let i = 0; i < 30; i++) {
+              const angle = Math.random() * Math.PI * 2
+              const speed = 0.15 + Math.random() * 0.5 // 慢速飘出
+              releaseParticlesRef.current.push({
+                nodeId: node.id,
+                x: node.position.x,
+                y: node.position.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 0.2, // 微微上飘
+                alpha: 0.3 + Math.random() * 0.5,
+                color: nodeColor,
+                size: 1.5 + Math.random() * 2.5,
+              })
+            }
+          }
+          const elapsed = Date.now() - timers.get(node.id)!
+          const progress = Math.min(elapsed / RELEASE_DURATION, 1)
+          releaseAlpha = 1 - progress
+          releaseScale = 1 - progress * 0.4
+
+          // 动画完成后标记为 released
+          if (progress >= 1) {
+            store.updateNode(node.id, { status: 'released', deletedAt: new Date() })
+            db.beliefNodes.update(node.id, { status: 'released', deletedAt: new Date() })
+            timers.delete(node.id)
+          }
+        }
+
+        // 聚焦模式下非相关节点：保持可见，仅轻微淡化
+        const dimOpacity = 1 + (0.40 - 1) * fa
+        const focusOpacity = focusId && !isFocused ? dimOpacity : 1
+
+        // 景深：z 影响节点大小和透明度
+        const z = node.position.z ?? 0.5
+        const depthScale = (0.78 + z * 0.44) * releaseScale // 0.78~1.22
+        const depthAlpha = (0.6 + z * 0.4) * releaseAlpha // 0.6~1.0
+        const globalOpacity = focusOpacity * depthAlpha
+        const displayR = r * depthScale
+
+        // 选中/聚焦光晕
+        if ((isSelected || isFocused) && globalOpacity > 0.1) {
+          ctx.beginPath()
+          ctx.arc(x, y, displayR + 8, 0, Math.PI * 2)
+          ctx.fillStyle = isFocused
+            ? 'rgba(212, 168, 67, 0.25)'
+            : 'rgba(212, 168, 67, 0.18)'
+          ctx.globalAlpha = globalOpacity
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+
+        // 态度标记光晕
+        if (node.attitude && globalOpacity > 0.1) {
+          const attitudeColors: Record<string, string> = {
+            break: 'rgba(232, 200, 160, 0.4)',
+            strengthen: 'rgba(160, 200, 176, 0.4)',
+            observe: 'rgba(200, 196, 180, 0.25)',
+          }
+          ctx.beginPath()
+          ctx.arc(x, y, displayR + 5, 0, Math.PI * 2)
+          ctx.fillStyle = attitudeColors[node.attitude] || 'transparent'
+          ctx.globalAlpha = globalOpacity
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+
+        // 主体
+        ctx.beginPath()
+        ctx.arc(x, y, displayR, 0, Math.PI * 2)
+        ctx.globalAlpha = globalOpacity
+        ctx.fillStyle = getNodeColor(node.type)
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+        ctx.lineWidth = 1 / scale
+        ctx.stroke()
+        ctx.globalAlpha = 1
+
+        // 文字
+        if (scale > 0.6 && globalOpacity > 0.1) {
+          const fullText = node.content
+          const maxWidth = 160 / scale // 根据缩放调整最大宽度
+          const baseFontSize = Math.max(10, Math.min(12 / scale, 14))
+          // 长文字自动缩小字号
+          const fontSize = fullText.length > 12
+            ? Math.max(8, baseFontSize * (12 / fullText.length) * 1.6)
+            : baseFontSize
+          ctx.font = `${fontSize}px "Noto Sans SC", sans-serif`
+          ctx.fillStyle = '#4A4036'
+          ctx.textAlign = 'center'
+          ctx.globalAlpha = globalOpacity
+          // 超长文字换行显示
+          if (fullText.length > 20) {
+            const line1 = fullText.slice(0, Math.ceil(fullText.length / 2))
+            const line2 = fullText.slice(Math.ceil(fullText.length / 2))
+            ctx.fillText(line1, x, y + displayR + fontSize + 3)
+            ctx.fillText(line2, x, y + displayR + fontSize * 2 + 5)
+          } else {
+            ctx.fillText(fullText, x, y + displayR + fontSize + 3)
+          }
+          ctx.globalAlpha = 1
+        }
+      }
+
+      // 释怀粒子渲染
+      const particles = releaseParticlesRef.current
+      if (particles.length > 0) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.alpha -= 0.005
+          if (p.alpha <= 0) {
+            particles.splice(i, 1)
+            continue
+          }
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+          ctx.fillStyle = hexToRgba(p.color, p.alpha)
+          ctx.globalAlpha = 1
+          ctx.fill()
+        }
+      }
+
+      // 力导向布局（每 2 帧计算一次，不影响渲染帧率）
+      if (forceEnabledRef.current && !focusId) {
+        forceFrameCountRef.current++
+        if (forceFrameCountRef.current % 2 === 0 && nodes.length > 1) {
+          const velocities = forceVelocitiesRef.current
+          // 初始化速度
+          for (const n of nodes) {
+            if (!velocities.has(n.id)) velocities.set(n.id, { x: 0, y: 0 })
+          }
+
+          const REPEL = 5000
+          const ATTRACT = 0.005
+          const CENTER = 0.001
+          const MAX_REPEL_DIST = 300
+          const DAMPING = 0.7
+          const MAX_VEL = 5
+
+          for (const n of nodes) {
+            let fx = 0, fy = 0
+            // 排斥力
+            for (const other of nodes) {
+              if (other.id === n.id) continue
+              let dx = n.position.x - other.position.x
+              let dy = n.position.y - other.position.y
+              const dist = Math.sqrt(dx * dx + dy * dy)
+              if (dist < 1) { dx = 1; dy = 0; }
+              const d = Math.max(dist, 1)
+              if (d < MAX_REPEL_DIST) {
+                const force = REPEL / (d * d)
+                fx += (dx / d) * force
+                fy += (dy / d) * force
+              }
+            }
+            // 吸引力（连线）
+            for (const edge of edges) {
+              if (edge.sourceId === n.id || edge.targetId === n.id) {
+                const otherId = edge.sourceId === n.id ? edge.targetId : edge.sourceId
+                const other = nodes.find(o => o.id === otherId)
+                if (!other) continue
+                const dx = other.position.x - n.position.x
+                const dy = other.position.y - n.position.y
+                const dist = Math.sqrt(dx * dx + dy * dy)
+                if (dist > 0) {
+                  fx += (dx / dist) * ATTRACT * dist
+                  fy += (dy / dist) * ATTRACT * dist
+                }
+              }
+            }
+            // 中心引力
+            fx -= n.position.x * CENTER
+            fy -= n.position.y * CENTER
+            // 更新速度
+            const v = velocities.get(n.id)!
+            v.x = (v.x + fx) * DAMPING
+            v.y = (v.y + fy) * DAMPING
+            // 限制速度
+            const speed = Math.sqrt(v.x * v.x + v.y * v.y)
+            if (speed > MAX_VEL) {
+              v.x = (v.x / speed) * MAX_VEL
+              v.y = (v.y / speed) * MAX_VEL
+            }
+          }
+          // 应用速度更新位置
+          for (const n of nodes) {
+            const v = velocities.get(n.id)
+            if (v && (Math.abs(v.x) > 0.01 || Math.abs(v.y) > 0.01)) {
+              store.updateNode(n.id, {
+                position: {
+                  x: n.position.x + v.x,
+                  y: n.position.y + v.y,
+                  z: n.position.z,
+                },
+              })
+            }
+          }
+        }
+      }
+
+      ctx.restore()
+
+      // 页面边缘暗角（vignette）：仅聚焦模式下显示，替代节点淡化
+      if (focusId && fa > 0.1) {
+        const vignetteAlpha = fa * 0.25
+        const gradient = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75)
+        gradient.addColorStop(0, 'rgba(74, 64, 54, 0)')
+        gradient.addColorStop(0.5, 'rgba(74, 64, 54, 0)')
+        gradient.addColorStop(1, `rgba(74, 64, 54, ${vignetteAlpha})`)
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, w, h)
+      }
+
+      if (mountedRef.current) {
+        const idle = Date.now() - lastActivityRef.current > IDLE_THRESHOLD
+        if (idle) {
+          idleFrameRef.current = window.setTimeout(render, 100) // ~10fps
+        } else {
+          requestAnimationFrame(render)
+        }
+      }
+    }
+
+    mountedRef.current = true
+    requestAnimationFrame(render)
+
+    return () => {
+      mountedRef.current = false
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  // ====== 鼠标事件 ======
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    lastActivityRef.current = Date.now()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const sx = e.clientX - rect.left
+    const sy = e.clientY - rect.top
+    const state = useBeliefStore.getState()
+    const { offsetX, offsetY, scale } = state.viewState
+    const world = screenToWorld(sx, sy, rect.width, rect.height, offsetX, offsetY, scale)
+    const hit = hitTest(world.x, world.y, state.nodes)
+
+    if (e.button === 2) {
+      // 右键
+      e.preventDefault()
+      if (hit) {
+        setContextMenu({ x: e.clientX, y: e.clientY, node: hit })
+      }
+      return
+    }
+
+    if (e.button === 0) {
+      if (hit) {
+        // 连接模式：点击第二个节点创建连线
+        if (connectMode && hit.id !== connectMode) {
+          const sourceNode = state.nodes.find(n => n.id === connectMode)
+          if (sourceNode && canConnect(sourceNode.type, hit.type)) {
+            const userId = getUserId()
+            const dir = normalizeEdgeDirection(connectMode, hit.id, sourceNode.type, hit.type)
+            const edge: BeliefEdge = {
+              id: crypto.randomUUID(),
+              userId,
+              sourceId: dir.sourceId,
+              targetId: dir.targetId,
+              type: 'manual',
+              strength: 0.5,
+              createdAt: new Date(),
+            }
+            state.addEdge(edge)
+            db.beliefEdges.add(edge)
+            setConnectMode(null)
+            state.selectNode(hit.id)
+            return
+          }
+        }
+
+        // 点击节点：取消连接模式 + 清除连线选中 + 选中 + 准备拖拽 + 启动长按计时
+        setConnectMode(null)
+        setSelectedEdgeId(null)
+        setEdgePopup(null)
+        state.selectNode(hit.id)
+        setIsDraggingNode(true)
+        setDragNodeId(hit.id)
+        setDragNodeStart({ x: hit.position.x, y: hit.position.y })
+        // 记录点击偏移（光标世界坐标 - 节点中心），拖拽时保持相对位置
+        dragOffsetRef.current = { x: world.x - hit.position.x, y: world.y - hit.position.y }
+        // 记录整条链路节点的原始位置（用于链式拖拽）
+        const chainDists = getConnectedWithDistance(hit.id, state.edges)
+        const originMap = new Map<string, { x: number; y: number }>()
+        for (const [nid] of chainDists) {
+          const n = state.nodes.find(nn => nn.id === nid)
+          if (n) originMap.set(nid, { x: n.position.x, y: n.position.y })
+        }
+        chainOriginRef.current = originMap
+        longPressPosRef.current = { x: e.clientX, y: e.clientY }
+
+        // 清除旧计时器
+        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = setTimeout(() => {
+          // 长按触发聚焦模式
+          state.setFocusNode(hit.id)
+          setIsDraggingNode(false)
+          setDragNodeId(null)
+          longPressTimerRef.current = null
+        }, LONG_PRESS_DURATION)
+      } else {
+        // 点击空白：先检测是否点中连线
+        const hitEdge = edgeHitTest(world.x, world.y, state.nodes, state.edges)
+        if (hitEdge) {
+          setSelectedEdgeId(hitEdge)
+          setEdgePopup({ edgeId: hitEdge, screenX: e.clientX, screenY: e.clientY })
+          state.selectNode(null)
+          state.setFocusNode(null)
+          setConnectMode(null)
+          setContextMenu(null)
+          return
+        }
+
+        // 点击空白：取消选中 + 取消连接模式 + 取消连线选中 + 退出聚焦 + 开始平移
+        state.selectNode(null)
+        state.setFocusNode(null)
+        setConnectMode(null)
+        setContextMenu(null)
+        setSelectedEdgeId(null)
+        setEdgePopup(null)
+        setIsPanning(true)
+        setPanStart({ x: e.clientX - offsetX, y: e.clientY - offsetY })
+      }
+    }
+  }, [connectMode])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    lastActivityRef.current = Date.now()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+
+    // 长按移动超出阈值 → 取消长按计时
+    if (longPressTimerRef.current) {
+      const dx = e.clientX - longPressPosRef.current.x
+      const dy = e.clientY - longPressPosRef.current.y
+      if (Math.abs(dx) > LONG_PRESS_MOVE_THRESHOLD || Math.abs(dy) > LONG_PRESS_MOVE_THRESHOLD) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+
+    if (isPanning) {
+      const now = performance.now()
+      const newOffsetX = e.clientX - panStart.x
+      const newOffsetY = e.clientY - panStart.y
+      const clamped = clampOffset(newOffsetX, newOffsetY)
+      useBeliefStore.getState().setViewState({ offsetX: clamped.ox, offsetY: clamped.oy })
+
+      // 计算速度（px/ms）
+      if (lastPanTimeRef.current > 0) {
+        const dt = now - lastPanTimeRef.current
+        if (dt > 0) {
+          velocityRef.current = {
+            x: (e.clientX - lastPanPosRef.current.x) / dt,
+            y: (e.clientY - lastPanPosRef.current.y) / dt,
+          }
+        }
+      }
+      lastPanTimeRef.current = now
+      lastPanPosRef.current = { x: e.clientX, y: e.clientY }
+    }
+
+    if (isDraggingNode && dragNodeId) {
+      const state = useBeliefStore.getState()
+      const { offsetX, offsetY, scale } = state.viewState
+      const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, offsetX, offsetY, scale)
+      const draggedNode = state.nodes.find(n => n.id === dragNodeId)
+      if (!draggedNode) return
+
+      // 计算目标位置（光标世界坐标 - 点击偏移，保持抓取时的相对位置）
+      const offset = dragOffsetRef.current
+      const targetX = world.x - offset.x
+      const targetY = world.y - offset.y
+
+      // 弹簧阻力：lerp 向目标，stiffness 越小阻力感越强
+      const stiffness = 0.38
+      const oldX = draggedNode.position.x
+      const oldY = draggedNode.position.y
+      const newX = oldX + (targetX - oldX) * stiffness
+      const newY = oldY + (targetY - oldY) * stiffness
+      store.updateNode(dragNodeId, { position: { x: newX, y: newY, z: draggedNode.position.z } })
+
+      // 链式跟随：同一链条上的节点按图距离权重跟移
+      const originMap = chainOriginRef.current
+      if (originMap.size > 1) {
+        const dragOrigin = originMap.get(dragNodeId)
+        if (dragOrigin) {
+          // 使用节点实际移动量（有弹簧），非光标原始移动量
+          const dx = newX - dragOrigin.x
+          const dy = newY - dragOrigin.y
+          const dists = getConnectedWithDistance(dragNodeId, state.edges)
+          const currentNodes = state.nodes
+          for (const [nid, dist] of dists) {
+            if (nid === dragNodeId) continue
+            const orig = originMap.get(nid)
+            if (!orig) continue
+            // 权重：距离越远跟移越少，带自然衰减
+            const w = dist <= 1 ? 0.65 : dist <= 2 ? 0.35 : dist <= 3 ? 0.18 : 0.08
+            store.updateNode(nid, {
+              position: { x: orig.x + dx * w, y: orig.y + dy * w, z: currentNodes.find(n => n.id === nid)?.position.z ?? 0.5 },
+            })
+          }
+        }
+      }
+    }
+  }, [isPanning, panStart, isDraggingNode, dragNodeId])
+
+  const handleMouseUp = useCallback(() => {
+    lastActivityRef.current = Date.now()
+    // 取消长按计时
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+
+    if (isPanning) {
+      setIsPanning(false)
+      // 启动惯性滑行
+      const vx = velocityRef.current.x
+      const vy = velocityRef.current.y
+      if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
+        const startInertia = () => {
+          velocityRef.current.x *= 0.94
+          velocityRef.current.y *= 0.94
+          const { offsetX, offsetY } = useBeliefStore.getState().viewState
+          const nextOX = offsetX + velocityRef.current.x * 16
+          const nextOY = offsetY + velocityRef.current.y * 16
+          const clamped = clampOffset(nextOX, nextOY)
+          useBeliefStore.getState().setViewState({ offsetX: clamped.ox, offsetY: clamped.oy })
+          // 碰到边界停止惯性
+          if (clamped.ox === nextOX && clamped.oy === nextOY &&
+              (Math.abs(velocityRef.current.x) > 0.02 || Math.abs(velocityRef.current.y) > 0.02)) {
+            inertiaAnimRef.current = requestAnimationFrame(startInertia)
+          }
+        }
+        inertiaAnimRef.current = requestAnimationFrame(startInertia)
+      }
+      // 重置速度追踪
+      velocityRef.current = { x: 0, y: 0 }
+      lastPanTimeRef.current = 0
+    }
+
+    if (isDraggingNode && dragNodeId) {
+      const state = useBeliefStore.getState()
+      const node = state.nodes.find(n => n.id === dragNodeId)
+      if (node) {
+        // 检查是否拖拽到另一个节点附近 → 自动连线
+        const canvas = canvasRef.current
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect()
+          const { offsetX, offsetY, scale } = state.viewState
+          // 被拖拽节点的屏幕坐标
+          const sx = rect.width / 2 + offsetX + node.position.x * scale
+          const sy = rect.height / 2 + offsetY + node.position.y * scale
+          for (const other of state.nodes) {
+            if (other.id === dragNodeId) continue
+            const ox = rect.width / 2 + offsetX + other.position.x * scale
+            const oy = rect.height / 2 + offsetY + other.position.y * scale
+            const dist = Math.sqrt((sx - ox) ** 2 + (sy - oy) ** 2)
+            if (dist < DRAG_CONNECT_DISTANCE && canConnect(node.type, other.type)) {
+              const userId = getUserId()
+              const dir = normalizeEdgeDirection(dragNodeId, other.id, node.type, other.type)
+              const edge: BeliefEdge = {
+                id: crypto.randomUUID(),
+                userId,
+                sourceId: dir.sourceId,
+                targetId: dir.targetId,
+                type: 'manual',
+                strength: 0.5,
+                createdAt: new Date(),
+              }
+              store.addEdge(edge)
+              db.beliefEdges.add(edge)
+              break
+            }
+          }
+        }
+        // 持久化节点新位置（包括链路节点）
+        db.beliefNodes.update(dragNodeId, { position: node.position })
+        for (const [nid] of chainOriginRef.current) {
+          if (nid === dragNodeId) continue
+          const updated = state.nodes.find(n => n.id === nid)
+          if (updated) db.beliefNodes.update(nid, { position: updated.position })
+        }
+        chainOriginRef.current = new Map()
+      }
+      setIsDraggingNode(false)
+      setDragNodeId(null)
+    }
+  }, [isPanning, isDraggingNode, dragNodeId])
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    lastActivityRef.current = Date.now()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const sx = e.clientX - rect.left
+    const sy = e.clientY - rect.top
+    const state = useBeliefStore.getState()
+    const { offsetX, offsetY, scale } = state.viewState
+    const world = screenToWorld(sx, sy, rect.width, rect.height, offsetX, offsetY, scale)
+    const hit = hitTest(world.x, world.y, state.nodes)
+
+    if (hit) {
+      setEditingNodeId(hit.id)
+      setEditText(hit.content)
+    }
+  }, [])
+
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault()
+    lastActivityRef.current = Date.now()
+    // 取消惯性动画
+    if (inertiaAnimRef.current) {
+      cancelAnimationFrame(inertiaAnimRef.current)
+      inertiaAnimRef.current = null
+    }
+    const direction = e.deltaY > 0 ? -1 : 1
+    const factor = 1.1
+    // 允许略微超出软限制，弹性回弹由渲染循环处理
+    const currentScale = useBeliefStore.getState().viewState.scale
+    const newScale = Math.max(0.25, Math.min(2.5, currentScale * (direction > 0 ? factor : 1 / factor)))
+    store.setViewState({ scale: newScale })
+  }, [])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+  }, [])
+
+  // 保存编辑
+  const saveEdit = useCallback(() => {
+    if (editingNodeId && editText.trim()) {
+      store.updateNode(editingNodeId, { content: editText.trim() })
+      db.beliefNodes.update(editingNodeId, { content: editText.trim() })
+    }
+    setEditingNodeId(null)
+    setEditText('')
+  }, [editingNodeId, editText])
+
+  // 键盘快捷操作
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      lastActivityRef.current = Date.now()
+      if (editingNodeId) {
+        if (e.key === 'Enter') saveEdit()
+        if (e.key === 'Escape') {
+          setEditingNodeId(null)
+          setEditText('')
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        store.selectNode(null)
+        store.setFocusNode(null)
+      }
+      if (e.key === 'Delete') {
+        if (selectedEdgeId) {
+          store.removeEdge(selectedEdgeId)
+          db.beliefEdges.delete(selectedEdgeId)
+          setSelectedEdgeId(null)
+          setEdgePopup(null)
+        } else if (store.selectedNodeId) {
+          const id = store.selectedNodeId
+          store.updateNode(id, { deletedAt: new Date() })
+          db.beliefNodes.update(id, { deletedAt: new Date() })
+          store.selectNode(null)
+        }
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editingNodeId, store.selectedNodeId, selectedEdgeId])
+
+  // ====== UI 渲染 ======
+  const selectedNode = store.nodes.find(n => n.id === store.selectedNodeId)
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full relative overflow-hidden"
+      style={{ backgroundColor: '#FAF7F2' }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 z-0"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
+        onWheel={handleWheel}
+        onContextMenu={handleContextMenu}
+        style={{ cursor: isDraggingNode ? 'grabbing' : isPanning ? 'grabbing' : 'grab' }}
+      />
+
+      {/* 梳理提醒 */}
+      {reviewReminder && (
+        <div
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full flex items-center gap-3 cursor-pointer"
+          style={{
+            backgroundColor: 'rgba(255, 251, 245, 0.92)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid #E0D8CC',
+            boxShadow: '0 2px 12px rgba(74, 64, 54, 0.06)',
+          }}
+          onClick={() => {
+            if (reviewReminder === 'daily') {
+              setDailyPanelOpen(true)
+            } else {
+              setReviewType(reviewReminder as 'monthly' | 'weekly')
+              setReviewOpen(true)
+            }
+            setReviewReminder(null)
+          }}
+        >
+          <span className="text-sm" style={{ color: '#4A4036' }}>
+            {reviewReminder === 'daily'
+              ? '昨天还有未完成的待办，要看看吗？ 📌'
+              : '又到了看看自己的时候了 🌿'}
+          </span>
+          <button
+            className="text-xs hover:opacity-70 transition-opacity"
+            style={{ color: '#9C9088' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setReviewReminder(null)
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* 顶部栏 */}
+      <div className="absolute top-0 left-0 right-0 flex justify-between items-center px-6 py-4 pointer-events-none z-10">
+        <span
+          className="font-serif text-lg tracking-wider pointer-events-auto cursor-pointer select-none"
+          style={{ color: '#5C4A3A' }}
+          onClick={() => store.setViewState({ offsetX: 0, offsetY: 0, scale: 1 })}
+        >
+          信念
+        </span>
+        <div className="flex gap-2 pointer-events-auto items-center" style={{ color: '#9C9088' }}>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="信念总览"
+            onClick={() => setDrawerOpen(true)}
+          >
+            📋
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="深度思考记录本"
+            onClick={() => setJournalOpen(true)}
+          >
+            📓
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="深度觉察"
+            onClick={() => setDeepInsightOpen(true)}
+          >
+            💡
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="自动梳理布局"
+            onClick={() => setForceEnabled(!forceEnabled)}
+            style={{ opacity: forceEnabled ? 1 : 0.5 }}
+          >
+            🌿
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="设置"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙️
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="使用手册"
+            onClick={() => setManualOpen(true)}
+          >
+            ❓
+          </button>
+        </div>
+      </div>
+
+      {/* 选中节点信息条 */}
+      {selectedNode && !editingNodeId && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 px-5 py-2.5 rounded-full flex items-center gap-3"
+          style={{
+            top: 16,
+            backgroundColor: 'rgba(255, 251, 245, 0.9)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid #E0D8CC',
+            boxShadow: '0 2px 12px rgba(74, 64, 54, 0.06)',
+          }}
+        >
+          <span className="text-sm max-w-[300px]" style={{ color: '#4A4036', wordBreak: 'break-word' }}>
+            {selectedNode.content}
+          </span>
+          <span className="text-xs" style={{ color: '#9C9088' }}>
+            {getTypeLabel(selectedNode.type)}
+          </span>
+          <button
+            className="text-xs hover:opacity-70"
+            style={{ color: '#9C9088' }}
+            title="编辑"
+            onClick={() => {
+              setEditingNodeId(selectedNode.id)
+              setEditText(selectedNode.content)
+            }}
+          >
+            ✏️
+          </button>
+          <button
+            className="text-xs hover:opacity-70"
+            style={{ color: connectMode === selectedNode.id ? '#D4A843' : '#9C9088' }}
+            title="连接到另一个节点"
+            onClick={() => {
+              setConnectMode(connectMode === selectedNode.id ? null : selectedNode.id)
+            }}
+          >
+            🔗
+          </button>
+        </div>
+      )}
+
+      {/* 连接模式提示 */}
+      {connectMode && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 px-4 py-1.5 rounded-full"
+          style={{
+            top: 64,
+            backgroundColor: 'rgba(212, 168, 67, 0.12)',
+            border: '1px solid rgba(212, 168, 67, 0.25)',
+          }}
+        >
+          <span className="text-xs" style={{ color: '#8B6B3A' }}>
+            点击另一个节点建立连接 · 点击空白取消
+          </span>
+        </div>
+      )}
+
+      {/* 聚焦模式提示 */}
+      {store.focusNodeId && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3">
+          <div
+            className="px-4 py-1.5 rounded-full flex items-center gap-2"
+            style={{
+              backgroundColor: 'rgba(212, 168, 67, 0.15)',
+              border: '1px solid rgba(212, 168, 67, 0.3)',
+            }}
+          >
+            <span className="text-xs" style={{ color: '#8B6B3A' }}>
+              聚焦模式
+            </span>
+            <button
+              className="text-xs px-2 py-0.5 rounded-full transition-all hover:opacity-70"
+              style={{
+                backgroundColor: 'rgba(212, 168, 67, 0.2)',
+                color: '#8B6B3A',
+              }}
+              onClick={() => {
+                const relatedIds = getConnectedComponent(store.focusNodeId!, store.edges)
+                setChainExploreNodeIds(relatedIds)
+                setChainExploreOpen(true)
+              }}
+            >
+              🔍 深度挖掘此链路
+            </button>
+            <button
+              className="text-xs hover:opacity-70 transition-opacity cursor-pointer"
+              style={{ color: '#5C4A3A' }}
+              onClick={() => store.setFocusNode(null)}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑浮层 */}
+      {editingNodeId && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center" onClick={() => saveEdit()}>
+          <div
+            className="px-6 py-4 rounded-lg"
+            style={{
+              backgroundColor: 'rgba(255, 251, 245, 0.97)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid #E0D8CC',
+              boxShadow: '0 4px 24px rgba(74, 64, 54, 0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              className="input-underline text-center w-64"
+              autoFocus
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveEdit()
+                if (e.key === 'Escape') {
+                  setEditingNodeId(null)
+                  setEditText('')
+                }
+              }}
+            />
+            <p className="text-xs mt-2 text-center" style={{ color: '#9C9088' }}>
+              Enter 保存 · Esc 取消
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 连线信息浮层 */}
+      {edgePopup && (
+        <EdgeInfoPopup
+          edgeId={edgePopup.edgeId}
+          screenX={edgePopup.screenX}
+          screenY={edgePopup.screenY}
+          onClose={() => {
+            setEdgePopup(null)
+            setSelectedEdgeId(null)
+          }}
+        />
+      )}
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          node={contextMenu.node}
+          onClose={() => setContextMenu(null)}
+          onConnect={(nodeId) => {
+            setConnectMode(nodeId)
+            setContextMenu(null)
+          }}
+        />
+      )}
+
+      {/* 节点详情浮层 */}
+      <NodeDetailPanel />
+
+      {/* 信念总览抽屉 */}
+      <BeliefDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      {/* 设置面板 */}
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onManualReview={(type) => {
+          setReviewType(type)
+          setReviewOpen(true)
+        }}
+        onOpenManual={() => setManualOpen(true)}
+      />
+
+      {/* 深度思考记录本 */}
+      <ThoughtJournalPanel open={journalOpen} onClose={() => setJournalOpen(false)} />
+
+      {/* 今日待办面板 */}
+      <DailyTaskPanel
+        open={dailyPanelOpen}
+        onClose={() => setDailyPanelOpen(false)}
+        onTaskCountChange={setDailyTaskCount}
+      />
+
+      {/* 使用手册 */}
+      <UserManualPanel open={manualOpen} onClose={() => setManualOpen(false)} />
+
+      {/* 链路深度挖掘面板 */}
+      <ChainExplorePanel
+        open={chainExploreOpen}
+        onClose={() => setChainExploreOpen(false)}
+        chainNodeIds={chainExploreNodeIds}
+      />
+
+      {/* 深度觉察面板 */}
+      <DeepInsightPanel open={deepInsightOpen} onClose={() => setDeepInsightOpen(false)} />
+
+      {/* 梳理面板 */}
+      <ReviewPanel open={reviewOpen} reviewType={reviewType} onClose={() => setReviewOpen(false)} />
+
+      {/* AI 建议浮层 */}
+      <AISuggestionToast
+        visible={aiToast.visible}
+        loading={aiToast.loading}
+        error={aiToast.error}
+        originalText={aiToast.originalText}
+        result={aiToast.result}
+        onAcceptAll={handleAcceptAll}
+        onAcceptTypeOnly={handleAcceptTypeOnly}
+        onKeepOriginal={handleKeepOriginal}
+        onDismiss={handleDismissToast}
+      />
+
+      {/* 新手引导浮层 */}
+      {onboardingStep > 0 && (
+        <div className="absolute inset-0 z-40 flex items-end justify-center pb-8 pointer-events-none">
+          <div
+            className="pointer-events-auto px-6 py-4 rounded-xl mx-6 max-w-sm w-full"
+            style={{
+              backgroundColor: 'rgba(255, 251, 245, 0.97)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid #E0D8CC',
+              boxShadow: '0 4px 32px rgba(74, 64, 54, 0.1)',
+            }}
+          >
+            {onboardingStep === 1 && (
+              <div className="text-center space-y-3">
+                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
+                  在底部输入框写下你的第一个念头
+                  <br />
+                  <span style={{ color: '#9C9088' }}>AI 会自动分类并帮你润色表达</span>
+                </p>
+                <div className="flex justify-center gap-2">
+                  <StepDots current={1} total={5} />
+                </div>
+                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(2)}>
+                  知道了
+                </button>
+              </div>
+            )}
+            {onboardingStep === 2 && (
+              <div className="text-center space-y-3">
+                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
+                  长按节点进入聚焦模式
+                  <br />
+                  <span style={{ color: '#9C9088' }}>整条信念链路会高亮显示</span>
+                </p>
+                <div className="flex justify-center gap-2">
+                  <StepDots current={2} total={5} />
+                </div>
+                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(3)}>
+                  继续
+                </button>
+              </div>
+            )}
+            {onboardingStep === 3 && (
+              <div className="text-center space-y-3">
+                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
+                  拖拽节点靠近另一个节点
+                  <br />
+                  <span style={{ color: '#9C9088' }}>自动建立连线，方向按层级自动调整</span>
+                </p>
+                <div className="flex justify-center gap-2">
+                  <StepDots current={3} total={5} />
+                </div>
+                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(4)}>
+                  继续
+                </button>
+              </div>
+            )}
+            {onboardingStep === 4 && (
+              <div className="text-center space-y-3">
+                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
+                  点击右上角 💡 深度觉察
+                  <br />
+                  <span style={{ color: '#9C9088' }}>AI 帮你挖掘信念背后的根源</span>
+                </p>
+                <div className="flex justify-center gap-2">
+                  <StepDots current={4} total={5} />
+                </div>
+                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(5)}>
+                  继续
+                </button>
+              </div>
+            )}
+            {onboardingStep === 5 && (
+              <div className="text-center space-y-3">
+                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
+                  随时点击右上角 ❓ 查看使用手册
+                  <br />
+                  <span style={{ color: '#9C9088' }}>📋 信念总览 · 📓 思考记录 · 🌿 自动布局 · ⚙️ 设置</span>
+                </p>
+                <div className="flex justify-center gap-2">
+                  <StepDots current={5} total={5} />
+                </div>
+                <button className="btn-soft text-xs" onClick={completeOnboarding}>
+                  开始探索 ✨
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 底部浮动输入框 */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md px-6 z-10">
+        <div className="relative flex items-center gap-2">
+          <div className="relative flex-1">
+            {aiToast.loading && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2">
+                <span
+                  className="inline-block w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: '#C8A96E' }}
+                />
+              </div>
+            )}
+            <input
+              className="input-underline text-center w-full"
+              type="text"
+              placeholder="想到了什么...？"
+              disabled={aiToast.loading}
+              onKeyDown={(e) => {
+                const val = e.currentTarget.value.trim()
+                if (!val || aiToast.loading) return
+                if (e.key === 'Enter' && !e.ctrlKey) {
+                  const content = e.currentTarget.value.trim()
+                  e.currentTarget.value = ''
+                  handleInputSubmit(content)
+                } else if (e.key === 'Enter' && e.ctrlKey) {
+                  // Ctrl+Enter：存入今日待办
+                  const content = e.currentTarget.value.trim()
+                  e.currentTarget.value = ''
+                  saveDailyTask(content)
+                }
+              }}
+            />
+          </div>
+          {/* 今日待办按钮 */}
+          <button
+            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
+            style={{
+              color: dailyTaskCount > 0 ? '#C8A96E' : '#9C9088',
+              backgroundColor: dailyTaskCount > 0 ? 'rgba(200, 169, 110, 0.1)' : 'rgba(200, 200, 190, 0.06)',
+              border: dailyTaskCount > 0 ? '1px solid rgba(200, 169, 110, 0.25)' : '1px solid rgba(200, 200, 190, 0.15)',
+            }}
+            onClick={() => setDailyPanelOpen(true)}
+            title="今日待办（Ctrl+Enter 快速添加）"
+          >
+            📌 {dailyTaskCount > 0 && <span className="font-medium">{dailyTaskCount}</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* 空状态 */}
+      {store.nodes.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <p className="text-lg text-center tracking-wide leading-relaxed" style={{ color: '#C4B8B0' }}>
+            你的信念网络还是一片空白
+            <br />
+            <span className="text-sm mt-2 block">在下方输入你的第一个念头吧</span>
+          </p>
+        </div>
+      )}
+
+      {/* 左下角提示 */}
+      {store.nodes.length > 0 && (
+        <div className="absolute bottom-24 left-6 z-10 pointer-events-none">
+          <p className="text-xs leading-relaxed" style={{ color: '#C4B8B0' }}>
+            {store.focusNodeId ? (
+              <>Esc 或点击空白退出聚焦</>
+            ) : (
+              <>
+                拖拽空白平移 · 滚轮缩放
+                <br />
+                长按节点聚焦 · 右键更多
+              </>
+            )}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 引导步骤指示器
+function StepDots({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex gap-2">
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className="inline-block rounded-full transition-all duration-300"
+          style={{
+            width: i + 1 === current ? 16 : 6,
+            height: 6,
+            backgroundColor: i + 1 === current ? '#C8A96E' : '#E0D8CC',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
