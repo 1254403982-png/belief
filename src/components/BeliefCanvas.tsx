@@ -253,7 +253,7 @@ export default function BeliefCanvas() {
   const velocityRef = useRef({ x: 0, y: 0 })
   const lastPanTimeRef = useRef(0)
   const lastPanPosRef = useRef({ x: 0, y: 0 })
-  const DRAG_CONNECT_DISTANCE = 30 // 拖拽节点到另一节点附近的连线距离阈值（屏幕像素）
+  const DRAG_CONNECT_DISTANCE = 50 // 拖拽节点到另一节点附近的连线距离阈值（世界坐标）
 
   // 链式拖拽：记录拖动开始时链上各节点的原始位置
   const chainOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map())
@@ -510,6 +510,16 @@ export default function BeliefCanvas() {
 
   const getExistingNodesSummary = () => {
     return store.nodes.filter(n => !n.deletedAt).map(n => ({ id: n.id, content: n.content, type: n.type }))
+  }
+
+  // 直接发送（不经过 AI）
+  const handleSendInput = (content: string) => {
+    const duplicate = findDuplicateNode(content, store.nodes)
+    if (duplicate) {
+      setAiToast({ visible: true, loading: false, error: false, originalText: content, result: null, duplicate })
+      return
+    }
+    createSeedNode(content)
   }
 
   const handleInputSubmit = async (content: string) => {
@@ -1309,14 +1319,17 @@ export default function BeliefCanvas() {
         if (canvas) {
           const rect = canvas.getBoundingClientRect()
           const { offsetX, offsetY, scale } = state.viewState
-          // 被拖拽节点的屏幕坐标
-          const sx = rect.width / 2 + offsetX + node.position.x * scale
-          const sy = rect.height / 2 + offsetY + node.position.y * scale
+          // 用光标的屏幕坐标反算世界坐标（不受弹簧滞后影响）
+          const cursorScreenX = e.clientX - rect.left
+          const cursorScreenY = e.clientY - rect.top
+          const cursorWorldX = (cursorScreenX - rect.width / 2 - offsetX) / scale
+          const cursorWorldY = (cursorScreenY - rect.height / 2 - offsetY) / scale
           for (const other of state.nodes) {
             if (other.id === dragNodeId) continue
-            const ox = rect.width / 2 + offsetX + other.position.x * scale
-            const oy = rect.height / 2 + offsetY + other.position.y * scale
-            const dist = Math.sqrt((sx - ox) ** 2 + (sy - oy) ** 2)
+            const dist = Math.sqrt(
+              (cursorWorldX - other.position.x) ** 2 +
+              (cursorWorldY - other.position.y) ** 2
+            )
             if (dist < DRAG_CONNECT_DISTANCE && canConnect(node.type, other.type)) {
               tryCreateEdge(dragNodeId, other.id)
               break
@@ -1854,14 +1867,14 @@ export default function BeliefCanvas() {
               className="input-underline text-center w-full"
               type="text"
               placeholder="想到了什么...？"
-              disabled={aiToast.loading}
               onKeyDown={(e) => {
                 const val = e.currentTarget.value.trim()
-                if (!val || aiToast.loading) return
+                if (!val) return
                 if (e.key === 'Enter' && !e.ctrlKey) {
+                  // Enter：直接发送（不经过 AI）
                   const content = e.currentTarget.value.trim()
                   e.currentTarget.value = ''
-                  handleInputSubmit(content)
+                  handleSendInput(content)
                 } else if (e.key === 'Enter' && e.ctrlKey) {
                   // Ctrl+Enter：存入今日待办
                   const content = e.currentTarget.value.trim()
@@ -1871,6 +1884,45 @@ export default function BeliefCanvas() {
               }}
             />
           </div>
+          {/* AI 按钮 */}
+          <button
+            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
+            style={{
+              color: aiToast.loading ? '#C8A96E' : '#9C9088',
+              backgroundColor: aiToast.loading ? 'rgba(200, 169, 110, 0.12)' : 'rgba(200, 200, 190, 0.06)',
+              border: aiToast.loading ? '1px solid rgba(200, 169, 110, 0.25)' : '1px solid rgba(200, 200, 190, 0.15)',
+            }}
+            onClick={() => {
+              const input = document.querySelector('.input-underline') as HTMLInputElement
+              const content = input?.value?.trim()
+              if (!content || aiToast.loading) return
+              input.value = ''
+              handleInputSubmit(content)
+            }}
+            disabled={aiToast.loading}
+            title="AI 分析（让 AI 帮你分类和润色）"
+          >
+            🤖
+          </button>
+          {/* 发送按钮 */}
+          <button
+            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
+            style={{
+              color: '#5A7A68',
+              backgroundColor: 'rgba(160, 200, 176, 0.1)',
+              border: '1px solid rgba(160, 200, 176, 0.2)',
+            }}
+            onClick={() => {
+              const input = document.querySelector('.input-underline') as HTMLInputElement
+              const content = input?.value?.trim()
+              if (!content) return
+              input.value = ''
+              handleSendInput(content)
+            }}
+            title="直接发送（Enter）"
+          >
+            ➤
+          </button>
           {/* 今日待办按钮 */}
           <button
             className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"

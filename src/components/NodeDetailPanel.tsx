@@ -60,10 +60,18 @@ export default function NodeDetailPanel() {
       {selectedNode && (
         <motion.div
           key="detail-panel"
-          className="drawer-panel absolute right-0 top-0 bottom-0 w-full md:w-80 z-20 flex flex-col"
-          initial={{ x: 320 }}
-          animate={{ x: 0 }}
-          exit={{ x: 320 }}
+          className="absolute z-20 flex flex-col
+            max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:max-h-[55vh] max-md:rounded-t-2xl max-md:border-t max-md:border-[#E0D8CC]
+            md:right-0 md:top-0 md:bottom-0 md:w-80 md:border-l md:border-[#E0D8CC]"
+          style={{
+            backgroundColor: 'rgba(255, 251, 245, 0.92)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            boxShadow: '0 -4px 24px rgba(74, 64, 54, 0.06)',
+          }}
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
         >
           {/* 头部 */}
