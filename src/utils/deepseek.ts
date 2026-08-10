@@ -130,6 +130,48 @@ async function deepseekChat(
   }
 }
 
+/** 纯文本调用（不要求 JSON 返回） */
+async function deepseekChatText(
+  systemPrompt: string,
+  userMessage: string,
+  options?: { timeout?: number; maxTokens?: number },
+): Promise<string | null> {
+  const { key, isActivated } = await getApiKey()
+  if (!key || !isActivated) return null
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), options?.timeout ?? 20_000)
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.6,
+        max_tokens: options?.maxTokens ?? 800,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) return null
+
+    const data: any = await res.json()
+    return (data?.choices?.[0]?.message?.content ?? null) as string | null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // ====== System Prompts ======
 
 const CLASSIFY_SYSTEM = `你是一个温柔的内在觉察助手，名叫"信念"。
@@ -702,4 +744,50 @@ function validateCategory(value: unknown): import('../db').Category | undefined 
     return value as import('../db').Category
   }
   return undefined
+}
+
+// ====== 书本问答 ======
+
+const BOOK_QA_SYSTEM = `你是一个温柔的读书助手。用户正在阅读一本书，并基于书中内容提问。
+
+你会收到书中与问题最相关的几个段落。请**严格依据这些段落**回答问题：
+
+1. 如果段落中能找到答案 → 用温柔的语气组织回答，引用原文关键句
+2. 如果段落提供了部分线索 → 说明书中提到了什么，哪些是明确的，哪些不确定
+3. 如果段落完全不相关 → 诚实告知"这本书的已知内容中似乎没有直接讨论这一点"
+
+回答格式：
+- 先给出核心要点（1-3句）
+- 再展开具体内容（如果有）
+- 最后可标注参考章节
+
+原则：只基于提供的段落回答，不编造；语气温柔像朋友讲解；适度引用原文措辞。`
+
+export interface BookQA {
+  answer: string
+}
+
+export async function askBook(
+  bookTitle: string,
+  question: string,
+  contexts: Array<{ chapter: string; snippet: string }>,
+): Promise<string | null> {
+  if (contexts.length === 0) return null
+
+  const ctxText = contexts
+    .map((c, i) => `[段落${i + 1} · ${c.chapter}]\n${c.snippet}`)
+    .join('\n\n---\n\n')
+
+  const userMessage = `我正在阅读《${bookTitle}》。
+
+以下是与问题相关的段落：
+
+${ctxText}
+
+用户的问题：${question}
+
+请严格基于以上段落回答。如果段落中没有直接涉及该问题，请诚实说明。`
+
+  const raw = await deepseekChatText(BOOK_QA_SYSTEM, userMessage, { timeout: 30_000, maxTokens: 1200 })
+  return raw
 }

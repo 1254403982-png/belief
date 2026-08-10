@@ -11,6 +11,7 @@ import ReviewPanel from './ReviewPanel'
 import EdgeInfoPopup from './EdgeInfoPopup'
 import ThoughtJournalPanel from './ThoughtJournalPanel'
 import ChainExplorePanel from './ChainExplorePanel'
+import BookQAPanel from './BookQAPanel'
 import DailyTaskPanel from './DailyTaskPanel'
 import UserManualPanel from './UserManualPanel'
 import { classifyInput, type ClassifyResult } from '../utils/deepseek'
@@ -216,6 +217,7 @@ export default function BeliefCanvas() {
   const [dailyPanelOpen, setDailyPanelOpen] = useState(false)
   const [dailyTaskCount, setDailyTaskCount] = useState(0)
   const [manualOpen, setManualOpen] = useState(false)
+  const [bookQAOpen, setBookQAOpen] = useState(false)
   const [edgePopup, setEdgePopup] = useState<{ edgeId: string; screenX: number; screenY: number } | null>(null)
   const selectedEdgeRef = useRef<string | null>(null)
 
@@ -1518,6 +1520,13 @@ export default function BeliefCanvas() {
           </button>
           <button
             className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            title="书本问答"
+            onClick={() => setBookQAOpen(true)}
+          >
+            📚
+          </button>
+          <button
+            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
             title="深度觉察"
             onClick={() => setDeepInsightOpen(true)}
           >
@@ -1743,6 +1752,9 @@ export default function BeliefCanvas() {
 
       {/* 深度觉察面板 */}
       <DeepInsightPanel open={deepInsightOpen} onClose={() => setDeepInsightOpen(false)} />
+
+      {/* 书本问答面板 */}
+      <BookQAPanel open={bookQAOpen} onClose={() => setBookQAOpen(false)} />
 
       {/* 梳理面板 */}
       <ReviewPanel open={reviewOpen} reviewType={reviewType} onClose={() => setReviewOpen(false)} />
