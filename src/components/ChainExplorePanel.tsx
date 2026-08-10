@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, type BeliefEdge } from '../db'
 import { exploreChain, type ChainExploreResult } from '../utils/deepseek'
-import { getNodeColor, getTypeLabel, normalizeEdgeDirection } from './utils'
+import { getNodeColor, getTypeLabel, normalizeEdgeDirection, hasPath, findRedundantEdgeIds } from './utils'
 
 interface Props {
   open: boolean
@@ -91,17 +91,28 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
     // 自动连接到聚焦节点（原链路中的节点）
     if (focusNode) {
       const dir = normalizeEdgeDirection(focusNode.id, id, focusNode.type, node.type)
-      const edge: BeliefEdge = {
-        id: crypto.randomUUID(),
-        userId,
-        sourceId: dir.sourceId,
-        targetId: dir.targetId,
-        type: 'suggested_by_ai',
-        strength: 0.5,
-        createdAt: new Date(),
+      const existingEdges = store.edges
+      if (!hasPath(dir.sourceId, dir.targetId, existingEdges) &&
+          !existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                    (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) {
+        const edge: BeliefEdge = {
+          id: crypto.randomUUID(),
+          userId,
+          sourceId: dir.sourceId,
+          targetId: dir.targetId,
+          type: 'suggested_by_ai',
+          strength: 0.5,
+          createdAt: new Date(),
+        }
+        store.addEdge(edge)
+        db.beliefEdges.add(edge)
+        const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+        for (const rid of redundantIds) {
+          if (rid === edge.id) continue
+          store.removeEdge(rid)
+          db.beliefEdges.delete(rid)
+        }
       }
-      store.addEdge(edge)
-      db.beliefEdges.add(edge)
     }
     setAddedNodes(prev => new Set(prev).add(index))
   }
@@ -155,33 +166,55 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
       // 创建 fromNode → bridgeNode 的连线
       if (fromNode) {
         const dir = normalizeEdgeDirection(fromNode.id, bridgeNodeId, fromNode.type, ml.suggestedNode.type)
-        const edge: BeliefEdge = {
-          id: crypto.randomUUID(),
-          userId,
-          sourceId: dir.sourceId,
-          targetId: dir.targetId,
-          type: 'suggested_by_ai',
-          strength: 0.5,
-          createdAt: new Date(),
+        const existingEdges = store.edges
+        if (!hasPath(dir.sourceId, dir.targetId, existingEdges) &&
+            !existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                      (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) {
+          const edge: BeliefEdge = {
+            id: crypto.randomUUID(),
+            userId,
+            sourceId: dir.sourceId,
+            targetId: dir.targetId,
+            type: 'suggested_by_ai',
+            strength: 0.5,
+            createdAt: new Date(),
+          }
+          store.addEdge(edge)
+          db.beliefEdges.add(edge)
+          const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+          for (const rid of redundantIds) {
+            if (rid === edge.id) continue
+            store.removeEdge(rid)
+            db.beliefEdges.delete(rid)
+          }
         }
-        store.addEdge(edge)
-        db.beliefEdges.add(edge)
       }
 
       // 创建 bridgeNode → toNode 的连线
       if (toNode) {
         const dir = normalizeEdgeDirection(bridgeNodeId, toNode.id, ml.suggestedNode.type, toNode.type)
-        const edge: BeliefEdge = {
-          id: crypto.randomUUID(),
-          userId,
-          sourceId: dir.sourceId,
-          targetId: dir.targetId,
-          type: 'suggested_by_ai',
-          strength: 0.5,
-          createdAt: new Date(),
+        const existingEdges = store.edges
+        if (!hasPath(dir.sourceId, dir.targetId, existingEdges) &&
+            !existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                      (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) {
+          const edge: BeliefEdge = {
+            id: crypto.randomUUID(),
+            userId,
+            sourceId: dir.sourceId,
+            targetId: dir.targetId,
+            type: 'suggested_by_ai',
+            strength: 0.5,
+            createdAt: new Date(),
+          }
+          store.addEdge(edge)
+          db.beliefEdges.add(edge)
+          const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+          for (const rid of redundantIds) {
+            if (rid === edge.id) continue
+            store.removeEdge(rid)
+            db.beliefEdges.delete(rid)
+          }
         }
-        store.addEdge(edge)
-        db.beliefEdges.add(edge)
       }
     }
     setAddedMissingLinks(prev => new Set(prev).add(index))

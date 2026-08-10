@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, type BeliefEdge, type ConversationSession } from '../db'
 import { traceBelief, continueTrace, type TraceResult } from '../utils/deepseek'
-import { getNodeColor, getTypeLabel, normalizeEdgeDirection, formatDate, TYPE_HIERARCHY } from './utils'
+import { getNodeColor, getTypeLabel, normalizeEdgeDirection, formatDate, TYPE_HIERARCHY, hasPath, findRedundantEdgeIds } from './utils'
 
 interface Props {
   open: boolean
@@ -227,6 +227,10 @@ export default function DeepInsightPanel({ open, onClose }: Props) {
     const anchorNode = store.nodes.find(n => n.id === anchorId)
     if (!anchorNode) return
     const dir = normalizeEdgeDirection(anchorId, newNodeId, anchorNode.type, newNodeType)
+    const existingEdges = store.edges
+    if (hasPath(dir.sourceId, dir.targetId, existingEdges)) return
+    if (existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                 (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) return
     const edge: BeliefEdge = {
       id: crypto.randomUUID(),
       userId,
@@ -238,6 +242,12 @@ export default function DeepInsightPanel({ open, onClose }: Props) {
     }
     store.addEdge(edge)
     db.beliefEdges.add(edge)
+    const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+    for (const rid of redundantIds) {
+      if (rid === edge.id) continue
+      store.removeEdge(rid)
+      db.beliefEdges.delete(rid)
+    }
   }
 
   const handleAddNode = (suggestedNode: { content: string; type: BeliefNode['type'] }, index: number) => {
@@ -317,7 +327,11 @@ export default function DeepInsightPanel({ open, onClose }: Props) {
 
       for (const upper of upperNodes) {
         for (const lower of lowerNodes) {
+          const existingEdges = store.edges
           const dir = normalizeEdgeDirection(upper.id, lower.id, upper.type, lower.type)
+          if (hasPath(dir.sourceId, dir.targetId, existingEdges)) continue
+          if (existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                       (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) continue
           const edge: BeliefEdge = {
             id: crypto.randomUUID(),
             userId,
@@ -329,6 +343,12 @@ export default function DeepInsightPanel({ open, onClose }: Props) {
           }
           store.addEdge(edge)
           db.beliefEdges.add(edge)
+          const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+          for (const rid of redundantIds) {
+            if (rid === edge.id) continue
+            store.removeEdge(rid)
+            db.beliefEdges.delete(rid)
+          }
         }
       }
     }

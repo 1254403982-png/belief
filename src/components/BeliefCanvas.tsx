@@ -26,6 +26,8 @@ import {
   getConnectedWithDistance,
   normalizeEdgeDirection,
   findDuplicateNode,
+  hasPath,
+  findRedundantEdgeIds,
 } from './utils'
 
 // ====== 坐标转换 ======
@@ -436,6 +438,51 @@ export default function BeliefCanvas() {
     setDailyTaskCount(c => c + 1)
   }
 
+  // ====== 连线创建（含传递性归约） ======
+  const tryCreateEdge = (sourceId: string, targetId: string, edgeType: BeliefEdge['type'] = 'manual') => {
+    const state = useBeliefStore.getState()
+    const existingEdges = state.edges
+
+    // 检查是否已存在相同连线
+    const alreadyExists = existingEdges.some(
+      e => (e.sourceId === sourceId && e.targetId === targetId) ||
+           (e.sourceId === targetId && e.targetId === sourceId)
+    )
+    if (alreadyExists) return false
+
+    // 检查是否已有路径连通（传递性冗余）
+    if (hasPath(sourceId, targetId, existingEdges)) return false
+
+    const userId = getUserId()
+    const sourceNode = state.nodes.find(n => n.id === sourceId)
+    const targetNode = state.nodes.find(n => n.id === targetId)
+    if (!sourceNode || !targetNode) return false
+
+    const dir = normalizeEdgeDirection(sourceId, targetId, sourceNode.type, targetNode.type)
+    const edge: BeliefEdge = {
+      id: crypto.randomUUID(),
+      userId,
+      sourceId: dir.sourceId,
+      targetId: dir.targetId,
+      type: edgeType,
+      strength: 0.5,
+      createdAt: new Date(),
+    }
+    store.addEdge(edge)
+    db.beliefEdges.add(edge)
+
+    // 传递性归约：新连线可能使已有连线变得冗余
+    const allEdges = [...existingEdges, edge]
+    const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], allEdges)
+    for (const rid of redundantIds) {
+      if (rid === edge.id) continue
+      store.removeEdge(rid)
+      db.beliefEdges.delete(rid)
+    }
+
+    return true
+  }
+
   // ====== AI 输入处理 ======
   const createSeedNode = (content: string) => {
     // 重复检测
@@ -511,18 +558,7 @@ export default function BeliefCanvas() {
     for (const relatedId of result.relatedNodeIds) {
       const relatedNode = store.nodes.find(n => n.id === relatedId)
       if (relatedNode) {
-        const dir = normalizeEdgeDirection(relatedId, node.id, relatedNode.type, node.type)
-        const edge: BeliefEdge = {
-          id: crypto.randomUUID(),
-          userId,
-          sourceId: dir.sourceId,
-          targetId: dir.targetId,
-          type: 'suggested_by_ai',
-          strength: 0.5,
-          createdAt: new Date(),
-        }
-        store.addEdge(edge)
-        db.beliefEdges.add(edge)
+        tryCreateEdge(relatedId, node.id, 'suggested_by_ai')
       }
     }
     setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
@@ -1058,19 +1094,7 @@ export default function BeliefCanvas() {
         if (connectMode && hit.id !== connectMode) {
           const sourceNode = state.nodes.find(n => n.id === connectMode)
           if (sourceNode && canConnect(sourceNode.type, hit.type)) {
-            const userId = getUserId()
-            const dir = normalizeEdgeDirection(connectMode, hit.id, sourceNode.type, hit.type)
-            const edge: BeliefEdge = {
-              id: crypto.randomUUID(),
-              userId,
-              sourceId: dir.sourceId,
-              targetId: dir.targetId,
-              type: 'manual',
-              strength: 0.5,
-              createdAt: new Date(),
-            }
-            state.addEdge(edge)
-            db.beliefEdges.add(edge)
+            tryCreateEdge(connectMode, hit.id)
             setConnectMode(null)
             state.selectNode(hit.id)
             return
@@ -1294,19 +1318,7 @@ export default function BeliefCanvas() {
             const oy = rect.height / 2 + offsetY + other.position.y * scale
             const dist = Math.sqrt((sx - ox) ** 2 + (sy - oy) ** 2)
             if (dist < DRAG_CONNECT_DISTANCE && canConnect(node.type, other.type)) {
-              const userId = getUserId()
-              const dir = normalizeEdgeDirection(dragNodeId, other.id, node.type, other.type)
-              const edge: BeliefEdge = {
-                id: crypto.randomUUID(),
-                userId,
-                sourceId: dir.sourceId,
-                targetId: dir.targetId,
-                type: 'manual',
-                strength: 0.5,
-                createdAt: new Date(),
-              }
-              store.addEdge(edge)
-              db.beliefEdges.add(edge)
+              tryCreateEdge(dragNodeId, other.id)
               break
             }
           }

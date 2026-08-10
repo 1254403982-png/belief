@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type DailyTask } from '../db'
 import { classifyInput, type ClassifyResult } from '../utils/deepseek'
-import { normalizeEdgeDirection, findDuplicateNode } from './utils'
+import { normalizeEdgeDirection, findDuplicateNode, hasPath, findRedundantEdgeIds } from './utils'
 import { getTypeLabel } from './utils'
 
 interface Props {
@@ -110,7 +110,12 @@ export default function DailyTaskPanel({ open, onClose, onTaskCountChange }: Pro
       for (const connectId of result.relatedNodeIds) {
         const connectNode = store.nodes.find(n => n.id === connectId)
         if (!connectNode) continue
+        // 冗余检查
+        const existingEdges = store.edges
         const dir = normalizeEdgeDirection(node.id, connectId, node.type, connectNode.type)
+        if (hasPath(dir.sourceId, dir.targetId, existingEdges)) continue
+        if (existingEdges.some(e => (e.sourceId === dir.sourceId && e.targetId === dir.targetId) ||
+                                     (e.sourceId === dir.targetId && e.targetId === dir.sourceId))) continue
         const edge = {
           id: crypto.randomUUID(),
           userId,
@@ -122,6 +127,13 @@ export default function DailyTaskPanel({ open, onClose, onTaskCountChange }: Pro
         }
         store.addEdge(edge)
         await db.beliefEdges.add(edge)
+        // 清理冗余连线
+        const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], [...existingEdges, edge])
+        for (const rid of redundantIds) {
+          if (rid === edge.id) continue
+          store.removeEdge(rid)
+          await db.beliefEdges.delete(rid)
+        }
       }
     }
 

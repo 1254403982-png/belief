@@ -206,6 +206,50 @@ export function getConnectedWithDistance(
   return distances
 }
 
+/** BFS 检查从 sourceId 到 targetId 是否存在路径（可排除指定连线） */
+export function hasPath(
+  sourceId: string,
+  targetId: string,
+  edges: Array<{ id: string; sourceId: string; targetId: string }>,
+  excludeEdgeId?: string,
+): boolean {
+  if (sourceId === targetId) return true
+  const visited = new Set<string>()
+  const queue = [sourceId]
+  visited.add(sourceId)
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const edge of edges) {
+      if (excludeEdgeId && edge.id === excludeEdgeId) continue
+      const neighbor = edge.sourceId === current ? edge.targetId
+        : edge.targetId === current ? edge.sourceId
+        : null
+      if (neighbor === targetId) return true
+      if (neighbor && !visited.has(neighbor)) {
+        visited.add(neighbor)
+        queue.push(neighbor)
+      }
+    }
+  }
+  return false
+}
+
+/** 传递性归约：在受影响的连通分量中，移除可通过其他路径到达的冗余连线 */
+export function findRedundantEdgeIds(
+  affectedNodeIds: string[],
+  edges: Array<{ id: string; sourceId: string; targetId: string }>,
+): Set<string> {
+  const redundant = new Set<string>()
+  for (const edge of edges) {
+    // 只检查涉及受影响节点的连线
+    if (!affectedNodeIds.includes(edge.sourceId) && !affectedNodeIds.includes(edge.targetId)) continue
+    if (hasPath(edge.sourceId, edge.targetId, edges, edge.id)) {
+      redundant.add(edge.id)
+    }
+  }
+  return redundant
+}
+
 /** 连线类型 → 中文标签 */
 export function edgeTypeLabel(type: string): string {
   const map: Record<string, string> = {
