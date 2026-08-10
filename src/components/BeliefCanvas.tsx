@@ -220,6 +220,7 @@ export default function BeliefCanvas() {
   const selectedEdgeRef = useRef<string | null>(null)
 
   // AI 建议状态
+  const [inputValue, setInputValue] = useState('')
   const [aiToast, setAiToast] = useState<{
     visible: boolean; loading: boolean; error: boolean
     originalText: string; result: ClassifyResult | null
@@ -1854,39 +1855,9 @@ export default function BeliefCanvas() {
       {/* 底部浮动输入框 */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md px-6 z-10">
         <div className="relative flex items-center gap-2">
-          <div className="relative flex-1">
-            {aiToast.loading && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2">
-                <span
-                  className="inline-block w-2 h-2 rounded-full animate-pulse"
-                  style={{ backgroundColor: '#C8A96E' }}
-                />
-              </div>
-            )}
-            <input
-              className="input-underline text-center w-full"
-              type="text"
-              placeholder="想到了什么...？"
-              onKeyDown={(e) => {
-                const val = e.currentTarget.value.trim()
-                if (!val) return
-                if (e.key === 'Enter' && !e.ctrlKey) {
-                  // Enter：直接发送（不经过 AI）
-                  const content = e.currentTarget.value.trim()
-                  e.currentTarget.value = ''
-                  handleSendInput(content)
-                } else if (e.key === 'Enter' && e.ctrlKey) {
-                  // Ctrl+Enter：存入今日待办
-                  const content = e.currentTarget.value.trim()
-                  e.currentTarget.value = ''
-                  saveDailyTask(content)
-                }
-              }}
-            />
-          </div>
           {/* AI 按钮 */}
           <button
-            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
+            className="flex-shrink-0 w-9 h-9 rounded-full transition-all hover:opacity-70 flex items-center justify-center text-base"
             style={{
               color: aiToast.loading ? '#C8A96E' : '#9C9088',
               backgroundColor: aiToast.loading ? 'rgba(200, 169, 110, 0.12)' : 'rgba(200, 200, 190, 0.06)',
@@ -1897,6 +1868,7 @@ export default function BeliefCanvas() {
               const content = input?.value?.trim()
               if (!content || aiToast.loading) return
               input.value = ''
+              setInputValue('')
               handleInputSubmit(content)
             }}
             disabled={aiToast.loading}
@@ -1904,25 +1876,61 @@ export default function BeliefCanvas() {
           >
             🤖
           </button>
-          {/* 发送按钮 */}
-          <button
-            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
-            style={{
-              color: '#5A7A68',
-              backgroundColor: 'rgba(160, 200, 176, 0.1)',
-              border: '1px solid rgba(160, 200, 176, 0.2)',
-            }}
-            onClick={() => {
-              const input = document.querySelector('.input-underline') as HTMLInputElement
-              const content = input?.value?.trim()
-              if (!content) return
-              input.value = ''
-              handleSendInput(content)
-            }}
-            title="直接发送（Enter）"
-          >
-            ➤
-          </button>
+          <div className="relative flex-1">
+            {aiToast.loading && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2">
+                <span
+                  className="inline-block w-2 h-2 rounded-full animate-pulse"
+                  style={{ backgroundColor: '#C8A96E' }}
+                />
+              </div>
+            )}
+            <input
+              className="input-underline text-center w-full pr-9"
+              type="text"
+              placeholder="想到了什么...？"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                const val = e.currentTarget.value.trim()
+                if (!val) return
+                if (e.key === 'Enter' && !e.ctrlKey) {
+                  // Enter：直接发送（不经过 AI）
+                  const content = e.currentTarget.value.trim()
+                  e.currentTarget.value = ''
+                  setInputValue('')
+                  handleSendInput(content)
+                } else if (e.key === 'Enter' && e.ctrlKey) {
+                  // Ctrl+Enter：存入今日待办
+                  const content = e.currentTarget.value.trim()
+                  e.currentTarget.value = ''
+                  setInputValue('')
+                  saveDailyTask(content)
+                }
+              }}
+            />
+            {/* 发送按钮（输入框内部右侧） */}
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+              style={{
+                color: inputValue.trim() ? '#5A7A68' : '#C4B8B0',
+                opacity: inputValue.trim() ? 1 : 0.5,
+              }}
+              onClick={() => {
+                const input = document.querySelector('.input-underline') as HTMLInputElement
+                const content = input?.value?.trim()
+                if (!content) return
+                input.value = ''
+                setInputValue('')
+                handleSendInput(content)
+              }}
+              title="发送（Enter）"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 8l12-6-6 12-2-6-4-0z" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
           {/* 今日待办按钮 */}
           <button
             className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
