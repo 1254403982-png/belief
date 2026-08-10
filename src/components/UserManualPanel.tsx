@@ -180,7 +180,7 @@ function CanvasGuide() {
       />
       <GuideItem
         action="单击节点"
-        result="选中节点，顶部出现信息条，右侧弹出详情面板"
+        result="选中节点，桌面端右侧弹出详情面板，手机端底部弹出（不遮挡画布）"
       />
       <GuideItem
         action="双击节点"
@@ -265,7 +265,7 @@ function InputGuide() {
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
-        画布底部的输入框是你与信念网络交互的主要入口。
+        画布底部的输入框是你与信念网络交互的主要入口。输入框左侧是 AI 按钮，右侧内置发送按钮。
       </p>
 
       <div className="rounded-lg p-3 space-y-3" style={{
@@ -273,9 +273,20 @@ function InputGuide() {
         border: '1px solid rgba(200, 169, 110, 0.1)',
       }}>
         <div>
-          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>Enter 直接输入</p>
+          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>Enter / ➤ 直接发送</p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
-            输入任何念头，AI 会自动：分析信念类型 → 润色表达 → 建议分类领域 → 识别与已有节点的关联 → 给出温柔洞察。
+            输入任何念头，按 Enter 或点击输入框内的发送按钮（纸飞机图标 ➤），内容会立即以「未分类」类型出现在画布上，不做 AI 处理。
+            这是最快的输入方式，适合快速捕捉想法。
+          </p>
+          <p className="text-xs mt-1" style={{ color: '#C4B8B0' }}>
+            输入框为空时发送按钮为灰色，输入文字后自动亮起。
+          </p>
+        </div>
+        <div className="border-t" style={{ borderColor: 'rgba(200, 169, 110, 0.12)' }} />
+        <div>
+          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🤖 AI 按钮</p>
+          <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
+            点击输入框左侧的 🤖 按钮，AI 会分析你的输入：判断信念类型 → 润色表达 → 建议分类领域 → 识别与已有节点的关联 → 给出温柔洞察。
             你可以选择「采纳建议」「仅分类」或「保留原样」。
           </p>
         </div>
@@ -298,7 +309,7 @@ function InputGuide() {
       </div>
 
       <TipBox>
-        如果你不确定一个想法属于什么类型，直接输入原话并选择「保留原样」，它会以「未分类」类型出现在画布上。
+        想快速记录？直接输入 + Enter 秒上画布。需要 AI 帮忙分类润色？点一下 🤖 按钮即可。
       </TipBox>
     </div>
   )
@@ -310,7 +321,8 @@ function AIGuide() {
       <div>
         <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🤖 输入分类</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          底部输入框输入文字后，AI 自动判断信念类型、润色表达、建议领域分类，并识别与已有节点的关联。
+          在底部输入框输入文字后，点击左侧的 🤖 按钮，AI 会判断信念类型、润色表达、建议领域分类，并识别与已有节点的关联。
+          结果以浮层卡片展示，可选择「采纳建议」「仅分类」或「保留原样」。
         </p>
       </div>
 
@@ -364,7 +376,7 @@ function AIGuide() {
 
 function ShortcutsGuide() {
   const shortcuts = [
-    { key: 'Enter', desc: '底部输入框：提交 AI 分类\n编辑模式：保存文字' },
+    { key: 'Enter', desc: '底部输入框：直接发送到画布\n编辑模式：保存文字' },
     { key: 'Ctrl + Enter', desc: '将输入存入今日待办' },
     { key: 'Esc', desc: '取消选中 / 退出聚焦 / 关闭编辑 / 关闭浮层' },
     { key: 'Delete', desc: '删除选中的节点（软删除，进入垃圾箱）\n删除选中的连线' },
@@ -466,7 +478,7 @@ function TypeGuide() {
       ))}
 
       <div className="pt-2">
-        <p className="text-sm font-medium mb-2" style={{ color: '#4A4036' }}>生活领域（10 类）</p>
+        <p className="text-sm font-medium mb-2" style={{ color: '#4A4036' }}>生活领域（9 个预设 + 自定义分类）</p>
         <div className="flex flex-wrap gap-1.5">
           {[
             { emoji: '📚', label: '学习' },
