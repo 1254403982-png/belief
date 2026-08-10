@@ -61,6 +61,16 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
     // 1. 本地检索
     const results = searchBook(selectedBook, q, 5)
+
+    if (results.length === 0) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '书中没有找到与这个问题直接相关的内容。试试换个问法，或者用书中的关键词来提问？',
+      }])
+      setLoading(false)
+      return
+    }
+
     // 2. AI 回答
     const answer = await askBook(
       selectedBook.meta.title,
