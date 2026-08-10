@@ -16,11 +16,10 @@ interface Message {
 
 export default function BookQAPanel({ open, onClose }: Props) {
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>({})
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [books, setBooks] = useState<BookData[]>([])
-  const [loadingBook, setLoadingBook] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 懒加载书本数据
@@ -31,11 +30,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
   }, [open, books.length])
 
   const selectedBook = selectedBookId ? books.find((b: BookData) => b.meta.id === selectedBookId) : undefined
-
-  // 切换书本时清空消息
-  useEffect(() => {
-    if (selectedBookId) setMessages([])
-  }, [selectedBookId])
+  const messages = selectedBookId ? (messagesMap[selectedBookId] ?? []) : []
 
   // 自动滚动到底部
   useEffect(() => {
@@ -48,25 +43,29 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
   const handleBack = () => {
     setSelectedBookId(null)
-    setMessages([])
+  }
+
+  const appendMessage = (bookId: string, msg: Message) => {
+    setMessagesMap(prev => ({ ...prev, [bookId]: [...(prev[bookId] ?? []), msg] }))
   }
 
   const handleSend = async () => {
     const q = input.trim()
     if (!q || !selectedBook || loading) return
 
+    const bookId = selectedBook.meta.id
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: q }])
+    appendMessage(bookId, { role: 'user', content: q })
     setLoading(true)
 
     // 1. 本地检索
     const results = searchBook(selectedBook, q, 5)
 
     if (results.length === 0) {
-      setMessages(prev => [...prev, {
+      appendMessage(bookId, {
         role: 'assistant',
         content: '书中没有找到与这个问题直接相关的内容。试试换个问法，或者用书中的关键词来提问？',
-      }])
+      })
       setLoading(false)
       return
     }
@@ -79,12 +78,12 @@ export default function BookQAPanel({ open, onClose }: Props) {
     )
 
     if (answer) {
-      setMessages(prev => [...prev, { role: 'assistant', content: answer }])
+      appendMessage(bookId, { role: 'assistant', content: answer })
     } else {
-      setMessages(prev => [...prev, {
+      appendMessage(bookId, {
         role: 'assistant',
         content: '抱歉，暂时无法回答。请确认已设置激活码，或稍后再试。',
-      }])
+      })
     }
 
     setLoading(false)
@@ -92,7 +91,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
   const handleClose = () => {
     setSelectedBookId(null)
-    setMessages([])
+    setMessagesMap({})
     setInput('')
     onClose()
   }

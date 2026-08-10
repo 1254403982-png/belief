@@ -15,14 +15,22 @@ const STOP_WORDS = new Set([
   '如果', '虽然', '但是', '然而', '然后', '于是', '因此', '不过',
 ])
 
-/** 中文分词：取连续中文字符作为词（≥2字），去停用词 */
+/** 中文分词：滑动窗口生成 2-gram + 3-gram，去停用词 */
 function tokenize(text: string): string[] {
   const tokens: string[] = []
-  // 提取中文词组（2-4 字）
-  const matches = text.match(/[一-鿿]{2,4}/g)
-  if (!matches) return tokens
-  for (const m of matches) {
-    if (!STOP_WORDS.has(m) && m.length >= 2) tokens.push(m)
+  // 先提取纯中文序列
+  const cleaned = text.replace(/[^一-鿿]+/g, '')
+  if (cleaned.length < 2) return tokens
+
+  // 滑动 2-gram
+  for (let i = 0; i <= cleaned.length - 2; i++) {
+    const bigram = cleaned.slice(i, i + 2)
+    if (!STOP_WORDS.has(bigram)) tokens.push(bigram)
+  }
+  // 滑动 3-gram
+  for (let i = 0; i <= cleaned.length - 3; i++) {
+    const trigram = cleaned.slice(i, i + 3)
+    if (!STOP_WORDS.has(trigram)) tokens.push(trigram)
   }
   return tokens
 }
