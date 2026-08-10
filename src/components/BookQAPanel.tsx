@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { BookData, SearchResult } from '../data/books/types'
 import { searchBook } from '../utils/bookSearch'
 import { askBook } from '../utils/deepseek'
+import { useBeliefStore } from '../stores/useBeliefStore'
 
 interface Props {
   open: boolean
@@ -70,11 +71,13 @@ export default function BookQAPanel({ open, onClose }: Props) {
       return
     }
 
-    // 2. AI 回答
+    // 2. AI 回答（附带用户信念作为个人背景）
+    const nodes = useBeliefStore.getState().nodes
     const answer = await askBook(
       selectedBook.meta.title,
       q,
       results.map((r: SearchResult) => ({ chapter: r.chapter, snippet: r.snippet })),
+      nodes.length > 0 ? nodes.map(n => n.content) : undefined,
     )
 
     if (answer) {
