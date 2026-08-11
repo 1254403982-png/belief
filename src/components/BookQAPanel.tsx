@@ -265,18 +265,14 @@ export default function BookQAPanel({ open, onClose }: Props) {
                   />
                   {/* AI 功能启用键 */}
                   <motion.button
-                    className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all select-none"
-                    style={{
-                      backgroundColor: aiEnabled ? 'rgba(200, 169, 110, 0.18)' : 'rgba(200, 169, 110, 0.05)',
-                      border: aiEnabled ? '1.5px solid #C8A96E' : '1.5px solid rgba(200, 169, 110, 0.15)',
-                      color: aiEnabled ? '#8B6914' : '#C4B8B0',
-                    }}
-                    animate={flashAi ? { scale: [1, 1.15, 1], borderColor: ['#C8A96E', '#E8A840', '#C8A96E'] } : {}}
+                    className="flex-shrink-0 px-2 py-2 select-none"
+                    style={{ color: aiEnabled ? '#8B6914' : '#C4B8B0' }}
+                    animate={flashAi ? { scale: [1, 1.15, 1] } : {}}
                     transition={{ duration: 0.3 }}
                     onClick={() => setAiEnabled(v => !v)}
                     title={aiEnabled ? 'AI 已启用 · 点击关闭' : '点击启用 AI 问答'}
                   >
-                    <span className="font-serif text-[11px] font-bold tracking-wider">AI</span>
+                    <span className="font-serif text-sm font-bold tracking-wider">AI</span>
                   </motion.button>
                 </div>
               </div>
