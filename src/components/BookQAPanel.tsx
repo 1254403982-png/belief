@@ -20,7 +20,9 @@ export default function BookQAPanel({ open, onClose }: Props) {
   const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>({})
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [aiEnabled, setAiEnabled] = useState(false)
   const [books, setBooks] = useState<BookData[]>([])
+  const [flashAi, setFlashAi] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 懒加载书本数据
@@ -53,6 +55,12 @@ export default function BookQAPanel({ open, onClose }: Props) {
   const handleSend = async () => {
     const q = input.trim()
     if (!q || !selectedBook || loading) return
+
+    if (!aiEnabled) {
+      setFlashAi(true)
+      setTimeout(() => setFlashAi(false), 600)
+      return
+    }
 
     const bookId = selectedBook.meta.id
     setInput('')
@@ -250,24 +258,26 @@ export default function BookQAPanel({ open, onClose }: Props) {
                       border: '1px solid #E0D8CC',
                       color: '#4A4036',
                     }}
-                    placeholder="输入你的疑问..."
+                    placeholder={aiEnabled ? '输入你的疑问，回车发送...' : '先点亮 AI 按钮，再输入提问...'}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
                   />
-                  <button
-                    className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all hover:opacity-70"
+                  {/* AI 功能启用键 */}
+                  <motion.button
+                    className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all select-none"
                     style={{
-                      backgroundColor: input.trim() ? 'rgba(200, 169, 110, 0.15)' : 'rgba(200, 169, 110, 0.05)',
-                      color: input.trim() ? '#5C4A3A' : '#C4B8B0',
+                      backgroundColor: aiEnabled ? 'rgba(200, 169, 110, 0.18)' : 'rgba(200, 169, 110, 0.05)',
+                      border: aiEnabled ? '1.5px solid #C8A96E' : '1.5px solid rgba(200, 169, 110, 0.15)',
+                      color: aiEnabled ? '#8B6914' : '#C4B8B0',
                     }}
-                    onClick={handleSend}
-                    disabled={!input.trim() || loading}
+                    animate={flashAi ? { scale: [1, 1.15, 1], borderColor: ['#C8A96E', '#E8A840', '#C8A96E'] } : {}}
+                    transition={{ duration: 0.3 }}
+                    onClick={() => setAiEnabled(v => !v)}
+                    title={aiEnabled ? 'AI 已启用 · 点击关闭' : '点击启用 AI 问答'}
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 8l12-6-6 12-2-6-4-0z" fill="currentColor" />
-                    </svg>
-                  </button>
+                    <span className="font-serif text-[11px] font-bold tracking-wider">AI</span>
+                  </motion.button>
                 </div>
               </div>
             )}
