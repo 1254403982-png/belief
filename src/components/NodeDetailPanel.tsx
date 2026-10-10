@@ -21,7 +21,7 @@ const ATTITUDE_OPTIONS: { value: NonNullable<BeliefNode['attitude']>; label: str
   { value: 'observe', label: '观察', desc: '保持觉察，不急着判断' },
 ]
 
-export default function NodeDetailPanel() {
+export default function NodeDetailPanel({ onOpenExploration }: { onOpenExploration?: (sessionId: string) => void }) {
   const store = useBeliefStore()
   const selectedNode = store.nodes.find(n => n.id === store.selectedNodeId)
   const [editingNote, setEditingNote] = useState(false)
@@ -164,6 +164,13 @@ export default function NodeDetailPanel() {
                 </p>
               )}
             </section>
+
+            {selectedNode.sourceSessionId && onOpenExploration && (
+              <button className="text-sm text-left text-[#5C4A3A] underline py-2"
+                onClick={() => onOpenExploration(selectedNode.sourceSessionId!)}>
+                回看这句话来自哪次探索
+              </button>
+            )}
 
             {/* 类型选择 */}
             <section>

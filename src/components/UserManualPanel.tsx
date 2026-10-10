@@ -139,7 +139,7 @@ function IconsGuide() {
   const items = [
     { icon: '📋', name: '信念总览', desc: '查看信念树、领域分类、待破除/待坚定列表、垃圾箱' },
     { icon: '📓', name: '深度思考记录本', desc: '撰写和保存反思笔记，支持随时编辑和删除' },
-    { icon: '💡', name: '深度觉察', desc: 'AI 深度挖掘某个信念背后的根源，支持多轮追问（最多 10 轮）' },
+    { icon: '💡', name: '我的探索', desc: '先保存自己的思考，需要时让 AI 问一个问题，随时退出后继续' },
     { icon: '🌿', name: '自动梳理布局', desc: '开启/关闭力导向自动布局，让节点自动排列。再次点击关闭' },
     { icon: '⚙️', name: '设置', desc: '账号信息、定期梳理开关、手动触发梳理、数据导出（JSON/Markdown）' },
   ]
@@ -147,7 +147,7 @@ function IconsGuide() {
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
-        顶部栏右侧有 5 个图标按钮，每个对应一项核心功能：
+        顶部栏的常用入口：
       </p>
       {items.map((item) => (
         <div key={item.name} className="flex gap-3 items-start">
@@ -296,7 +296,7 @@ function InputGuide() {
             Ctrl + Enter 快速待办
           </p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
-            将当前输入存入今日待办列表，稍后可以逐一用 AI 分类处理。适合快速捕捉一闪而过的想法。
+            将当前输入存入待办列表，适合记下想实际尝试的小行动。只有你选择完成，待办才会完成。
           </p>
         </div>
       </div>
@@ -327,40 +327,39 @@ function AIGuide() {
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>💡 深度觉察</p>
+        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>💡 我的探索</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          选择一个节点后点击顶部 💡，AI 会深入挖掘这个信念的：
+          点击顶部 💡，写下具体经历或尚未想明白的念头。可以一直自己写，也可以主动请 AI 帮忙：
         </p>
         <ul className="text-xs mt-2 space-y-1" style={{ color: '#9C9088', listStyle: 'disc', paddingLeft: 16 }}>
-          <li>核心根源信念（coreBeliefName）</li>
-          <li>反向推导链（reverseDerivation）</li>
-          <li>建议补充的节点（suggestedNodes）—— 可逐个选择接受/拒绝</li>
+          <li>「记下这段」保存原话，不调用 AI</li>
+          <li>「问我一个问题」每次只推进一个问题</li>
+          <li>「整理到这里」按需概括，类型与是否入图由你决定</li>
         </ul>
         <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
-          在结果页面可以<strong style={{ color: '#4A4036' }}>追问</strong>（最多 10 轮）—— AI 会在已有分析基础上修正和补充，而非重新开始。
-          追问时可以说「这个不准确」「还想加入XX」「说得对，还有呢？」。
+          不需要先认可 AI 的解释，也没有必须得出结论的轮数。可以说不符合、暂时不知道，或停止问询后继续自己写。
         </p>
         <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
-          所有对话会自动保存，可以在 💡 面板的「💬 过去的对话」中查看和恢复。
+          原话、问题、草稿、你改写的候选表达和历次整理会保存在当前浏览器。上方列表可以继续过去的探索；加入画布的内容能从节点详情回看来源。尚未跨设备同步。
         </p>
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🔍 链路深度挖掘</p>
+        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>从节点继续探索</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          长按节点进入聚焦模式后，点击「🔍 深度挖掘此链路」，AI 会分析整条信念链路的：
+          长按节点进入聚焦模式后，点击「从这里继续探索」，会打开同一个探索面板：
         </p>
         <ul className="text-xs mt-2 space-y-1" style={{ color: '#9C9088', listStyle: 'disc', paddingLeft: 16 }}>
-          <li>链路总结和核心主题</li>
-          <li>关键缺失环节</li>
-          <li>节点表达的润色建议</li>
+          <li>首次进入时，把节点内容放入草稿</li>
+          <li>已有相关探索时，继续上次的记录</li>
+          <li>由你决定何时问询、整理或加入画布，不自动连线</li>
         </ul>
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>📌 待办 AI 分类</p>
+        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>📌 我的待办</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          在待办面板中，点击「🤖 AI 分类」按钮，AI 会分析该待办并建议分类和关联节点。
+          放想实际去做的事，由你勾选完成。未完成的旧待办会继续显示，已完成的也可以放回列表。整理思考与完成行动分别记录。
         </p>
       </div>
 

@@ -13,10 +13,14 @@ export async function exportAsJSON(userId: string): Promise<void> {
   const nodes = await db.beliefNodes.where('userId').equals(userId).toArray()
   const edges = await db.beliefEdges.where('userId').equals(userId).toArray()
   const user = await db.userAccounts.get(userId)
+  const thoughtJournals = await db.thoughtJournals.where('userId').equals(userId).toArray()
+  const dailyTasks = await db.dailyTasks.where('userId').equals(userId).toArray()
+  const conversationSessions = await db.conversationSessions.where('userId').equals(userId).toArray()
 
   const data = {
     exportedAt: new Date().toISOString(),
-    appVersion: '0.1.0',
+    appVersion: '0.2.0',
+    backupVersion: 2,
     user: user ? {
       username: user.username,
       reviewSettings: user.reviewSettings,
@@ -26,6 +30,9 @@ export async function exportAsJSON(userId: string): Promise<void> {
     edgeCount: edges.length,
     nodes,
     edges,
+    thoughtJournals,
+    dailyTasks,
+    conversationSessions,
   }
 
   downloadFile(

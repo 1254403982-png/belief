@@ -18,6 +18,9 @@ export interface BeliefNode {
   content: string
   category?: Category               // 领域分类
   userNote?: string
+  sourceSessionId?: string          // 从哪次探索中主动保留
+  sourceSummaryId?: string
+  sourceCandidateId?: string
   position: { x: number; y: number; z: number }
   createdAt: Date
   updatedAt: Date
@@ -57,18 +60,49 @@ export interface DailyTask {
   createdAt: Date
 }
 
-/** AI 对话会话记录 */
+export interface ExplorationMessage {
+  id?: string                       // 旧对话没有 ID，读取时补齐
+  role: 'user' | 'assistant'
+  content: string
+  kind?: 'thought' | 'question' | 'summary'
+  createdAt?: string
+}
+
+export interface ExplorationCandidate {
+  id: string
+  content: string
+  type: BeliefNode['type']
+  reason: string
+  quote: string
+  sourceMessageId: string
+  addedNodeId?: string
+  userContent?: string              // 用户改写单独保存，不覆盖 AI 原始建议
+  userType?: BeliefNode['type']
+}
+
+export interface ExplorationSummary {
+  id: string
+  createdAt: string
+  text: string
+  candidates: ExplorationCandidate[]
+}
+
+/** 原话、问题和整理版本分别保存，旧会话字段保持兼容。 */
 export interface ConversationSession {
   id: string
   userId: string
   title: string                          // 从首次输入截取的前 30 字
   description: string                    // 原始用户输入
-  history: Array<{ role: 'user' | 'assistant'; content: string }>
-  lastResult: any                        // TraceResult 快照
+  history: ExplorationMessage[]
+  lastResult: unknown                    // 旧版 TraceResult 快照，保留原数据
   confirmationRound: number
   followUpRound: number
   createdAt: Date
   updatedAt: Date
+  version?: 2
+  draft?: string
+  summaries?: ExplorationSummary[]
+  sourceNodeId?: string
 }
 
 export interface UserAccount {

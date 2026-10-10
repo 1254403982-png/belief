@@ -5,18 +5,18 @@ import { db, type BeliefNode, type BeliefEdge, type DailyTask } from '../db'
 import NodeDetailPanel from './NodeDetailPanel'
 import BeliefDrawer from './BeliefDrawer'
 import AISuggestionToast from './AISuggestionToast'
-import DeepInsightPanel from './DeepInsightPanel'
+import ExplorationPanel from './ExplorationPanel'
 import SettingsPanel from './SettingsPanel'
 import ReviewPanel from './ReviewPanel'
 import EdgeInfoPopup from './EdgeInfoPopup'
 import ThoughtJournalPanel from './ThoughtJournalPanel'
-import ChainExplorePanel from './ChainExplorePanel'
 import BookQAPanel from './BookQAPanel'
-import DailyTaskPanel from './DailyTaskPanel'
+import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
 import { classifyInput, type ClassifyResult } from '../utils/deepseek'
 import {
   getNodeColor,
+  formatDate,
   getNodeRadius,
   getTypeLabel,
   getEdgeColor,
@@ -210,8 +210,8 @@ export default function BeliefCanvas() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [journalOpen, setJournalOpen] = useState(false)
-  const [chainExploreOpen, setChainExploreOpen] = useState(false)
-  const [chainExploreNodeIds, setChainExploreNodeIds] = useState<Set<string>>(new Set())
+  const [explorationSessionId, setExplorationSessionId] = useState<string | undefined>()
+  const [explorationSourceNodeId, setExplorationSourceNodeId] = useState<string | undefined>()
   const [onboardingStep, setOnboardingStep] = useState(0) // 0=未开始, 1-3=引导步骤
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [dailyPanelOpen, setDailyPanelOpen] = useState(false)
@@ -337,7 +337,7 @@ export default function BeliefCanvas() {
   const loadData = async (userId: string) => {
     // 自动清理：删除 deletedAt 超过 7 天的节点
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const expired = await db.beliefNodes.where('deletedAt').below(cutoff).toArray()
+    const expired = await db.beliefNodes.where('deletedAt').below(cutoff).and(node => node.userId === userId).toArray()
     for (const n of expired) {
       await db.beliefNodes.delete(n.id)
       await db.beliefEdges.where('sourceId').equals(n.id).or('targetId').equals(n.id).delete()
@@ -350,8 +350,8 @@ export default function BeliefCanvas() {
     const allEdges = await db.beliefEdges.where('userId').equals(userId).toArray()
     // 过滤掉连向已删除节点的边
     const edges = allEdges.filter(e => activeIds.has(e.sourceId) && activeIds.has(e.targetId))
-    if (nodes.length > 0) store.setNodes(nodes)
-    if (edges.length > 0) store.setEdges(edges)
+    store.setNodes(nodes)
+    store.setEdges(edges)
 
     // 登录后入场动画：短暂启动力导向，让节点有轻微弹性移动
     if (nodes.length > 1) {
@@ -391,7 +391,7 @@ export default function BeliefCanvas() {
       }
       // 每日待办提醒：检查昨天及以前是否有未完成的待办
       if (user.reviewSettings.dailyEnabled && !reviewReminder) {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = formatDate(new Date())
         const pendingCount = await db.dailyTasks
           .where('userId').equals(userId)
           .and(t => t.status === 'pending' && t.date < today)
@@ -402,13 +402,12 @@ export default function BeliefCanvas() {
       }
     }
 
-    // 加载今日待办计数
+    // 包含之前尚未完成的待办，与待办面板保持一致。
     const userId2 = getUserId()
     if (userId2) {
-      const today = new Date().toISOString().slice(0, 10)
       const count = await db.dailyTasks
         .where('userId').equals(userId2)
-        .and(t => t.status === 'pending' && t.date === today)
+        .and(t => t.status === 'pending')
         .count()
       setDailyTaskCount(count)
     }
@@ -428,7 +427,7 @@ export default function BeliefCanvas() {
   const saveDailyTask = async (content: string) => {
     const userId = getUserId()
     if (!userId || !content) return
-    const today = new Date().toISOString().slice(0, 10)
+    const today = formatDate(new Date())
     const task: DailyTask = {
       id: crypto.randomUUID(),
       userId,
@@ -1527,8 +1526,13 @@ export default function BeliefCanvas() {
           </button>
           <button
             className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
-            title="深度觉察"
-            onClick={() => setDeepInsightOpen(true)}
+            title="我的探索：记录、问询与继续思考"
+            aria-label="我的探索"
+            onClick={() => {
+              setExplorationSessionId(undefined)
+              setExplorationSourceNodeId(undefined)
+              setDeepInsightOpen(true)
+            }}
           >
             💡
           </button>
@@ -1635,12 +1639,12 @@ export default function BeliefCanvas() {
                 color: '#8B6B3A',
               }}
               onClick={() => {
-                const relatedIds = getConnectedComponent(store.focusNodeId!, store.edges)
-                setChainExploreNodeIds(relatedIds)
-                setChainExploreOpen(true)
+                setExplorationSessionId(undefined)
+                setExplorationSourceNodeId(store.focusNodeId ?? undefined)
+                setDeepInsightOpen(true)
               }}
             >
-              🔍 深度挖掘此链路
+              从这里继续探索
             </button>
             <button
               className="text-xs hover:opacity-70 transition-opacity cursor-pointer"
@@ -1714,7 +1718,11 @@ export default function BeliefCanvas() {
       )}
 
       {/* 节点详情浮层 */}
-      <NodeDetailPanel />
+      <NodeDetailPanel onOpenExploration={(id) => {
+        setExplorationSessionId(id)
+        setExplorationSourceNodeId(undefined)
+        setDeepInsightOpen(true)
+      }} />
 
       {/* 信念总览抽屉 */}
       <BeliefDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
@@ -1734,7 +1742,7 @@ export default function BeliefCanvas() {
       <ThoughtJournalPanel open={journalOpen} onClose={() => setJournalOpen(false)} />
 
       {/* 今日待办面板 */}
-      <DailyTaskPanel
+      <DailyActionPanel
         open={dailyPanelOpen}
         onClose={() => setDailyPanelOpen(false)}
         onTaskCountChange={setDailyTaskCount}
@@ -1743,15 +1751,9 @@ export default function BeliefCanvas() {
       {/* 使用手册 */}
       <UserManualPanel open={manualOpen} onClose={() => setManualOpen(false)} />
 
-      {/* 链路深度挖掘面板 */}
-      <ChainExplorePanel
-        open={chainExploreOpen}
-        onClose={() => setChainExploreOpen(false)}
-        chainNodeIds={chainExploreNodeIds}
-      />
-
-      {/* 深度觉察面板 */}
-      <DeepInsightPanel open={deepInsightOpen} onClose={() => setDeepInsightOpen(false)} />
+      {/* 同一个探索入口承接自由书写、节点探索和来源回看。 */}
+      <ExplorationPanel open={deepInsightOpen} sessionId={explorationSessionId}
+        sourceNodeId={explorationSourceNodeId} onClose={() => setDeepInsightOpen(false)} />
 
       {/* 书本问答面板 */}
       <BookQAPanel open={bookQAOpen} onClose={() => setBookQAOpen(false)} />
@@ -1790,7 +1792,7 @@ export default function BeliefCanvas() {
                 <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
                   在底部输入框写下你的第一个念头
                   <br />
-                  <span style={{ color: '#9C9088' }}>AI 会自动分类并帮你润色表达</span>
+                  <span style={{ color: '#9C9088' }}>按 Enter 保留原话，之后再慢慢整理</span>
                 </p>
                 <div className="flex justify-center gap-2">
                   <StepDots current={1} total={5} />
@@ -1833,9 +1835,9 @@ export default function BeliefCanvas() {
             {onboardingStep === 4 && (
               <div className="text-center space-y-3">
                 <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  点击右上角 💡 深度觉察
+                  点击右上角 💡 我的探索
                   <br />
-                  <span style={{ color: '#9C9088' }}>AI 帮你挖掘信念背后的根源</span>
+                  <span style={{ color: '#9C9088' }}>先自己写，需要时让 AI 问一个问题</span>
                 </p>
                 <div className="flex justify-center gap-2">
                   <StepDots current={4} total={5} />
@@ -1904,6 +1906,7 @@ export default function BeliefCanvas() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return
                 const val = e.currentTarget.value.trim()
                 if (!val) return
                 if (e.key === 'Enter' && !e.ctrlKey) {
@@ -1952,7 +1955,7 @@ export default function BeliefCanvas() {
               border: dailyTaskCount > 0 ? '1px solid rgba(200, 169, 110, 0.25)' : '1px solid rgba(200, 200, 190, 0.15)',
             }}
             onClick={() => setDailyPanelOpen(true)}
-            title="今日待办（Ctrl+Enter 快速添加）"
+            title="我的待办（Ctrl+Enter 快速添加行动）"
           >
             📌 {dailyTaskCount > 0 && <span className="font-medium">{dailyTaskCount}</span>}
           </button>

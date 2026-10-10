@@ -527,6 +527,9 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                 <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
                   数据导出
                 </label>
+                <p className="text-xs leading-relaxed" style={{ color: '#7A7670' }}>
+                  当前账号与记录保存在此浏览器，尚未跨设备同步。JSON 备份包含画布、日记、待办和探索记录，请妥善保存。
+                </p>
                 <div className="flex gap-2">
                   <button
                     className="flex-1 text-sm px-3 py-2 rounded-full transition-all hover:opacity-80"
