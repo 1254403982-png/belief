@@ -165,6 +165,16 @@ test('旧账号过期的激活信息不会限制 AI', async () => {
   assert.equal(calls.length, 1)
 })
 
+test('模型账户余额不足时说明原因，原话仍已保存', async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 402 }) as any
+  await mount()
+  await typeDraft('这段话不能因为接口失败而丢失')
+  await click('问我一个问题')
+  assert.equal((await current()).history[0].content, '这段话不能因为接口失败而丢失')
+  const alerts = renderer!.root.findAllByProps({ role: 'alert' })
+  assert.ok(alerts.some(node => node.children.join('').includes('余额不足')))
+})
+
 test('用户主动整理才产生候选，编辑自动保存，重复入图不产生重复节点或自动连线', async () => {
   reply = async body => {
     const { history } = JSON.parse(body.messages[1].content)

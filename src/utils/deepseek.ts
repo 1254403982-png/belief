@@ -63,6 +63,20 @@ const MODEL = 'deepseek-chat'
 // DeepSeek API Key（从环境变量读取，不在代码中硬编码）
 const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
+export type AIRequestFailure = 'configuration' | 'billing' | 'authentication' | 'rate_limit' | 'network' | 'service'
+
+export function describeAIRequestFailure(reason: AIRequestFailure, originalSaved = false): string {
+  const note = originalSaved ? '你的原话已保存。' : '请先保留原文。'
+  switch (reason) {
+    case 'configuration': return `AI 服务尚未配置。${note}`
+    case 'billing': return `AI 服务余额不足，暂时无法回应。${note}`
+    case 'authentication': return `AI 服务凭据失效。${note}`
+    case 'rate_limit': return `AI 请求过于频繁，请稍后再试。${note}`
+    case 'network': return `连接 AI 服务失败，请稍后再试。${note}`
+    case 'service': return `AI 服务暂时无法回应，请稍后再试。${note}`
+  }
+}
+
 /**
  * 当前本地账号均可使用 AI；模型凭据由部署环境提供。
  */
@@ -81,10 +95,13 @@ async function getApiKey(): Promise<string> {
 async function deepseekChat(
   systemPrompt: string,
   userMessage: string,
-  options?: { timeout?: number; maxTokens?: number; previousMessages?: Array<{ role: string; content: string }>; signal?: AbortSignal },
+  options?: { timeout?: number; maxTokens?: number; previousMessages?: Array<{ role: string; content: string }>; signal?: AbortSignal; onFailure?: (reason: AIRequestFailure) => void },
 ): Promise<Record<string, unknown> | null> {
   const key = await getApiKey()
-  if (!key) return null
+  if (!key) {
+    options?.onFailure?.('configuration')
+    return null
+  }
   if (options?.signal?.aborted) return null
 
   const controller = new AbortController()
@@ -113,7 +130,12 @@ async function deepseekChat(
       signal: controller.signal,
     })
 
-    if (!res.ok) return null
+    if (!res.ok) {
+      options?.onFailure?.(res.status === 402 ? 'billing'
+        : res.status === 401 ? 'authentication'
+        : res.status === 429 ? 'rate_limit' : 'service')
+      return null
+    }
 
     const data: any = await res.json()
     const raw = data?.choices?.[0]?.message?.content
@@ -127,6 +149,7 @@ async function deepseekChat(
 
     return JSON.parse(cleaned) as Record<string, unknown>
   } catch {
+    if (!options?.signal?.aborted) options?.onFailure?.('network')
     return null
   } finally {
     clearTimeout(timeout)
@@ -162,16 +185,16 @@ thought/emotion 是当下想法/感受；behavior 是行为；material_reality �
 尊重用户的不同意与改写，不以“你内心深处就是”定论。
 只返回 JSON：{"text":"简短整理","candidates":[{"content":"待用户决定的表达","type":"seed","reason":"依据或不确定之处","quote":"用户消息中的连续原文","sourceMessageId":"对应用户消息id"}]}`
 
-export async function askExplorationQuestion(history: ExplorationMessage[], signal?: AbortSignal): Promise<string | null> {
+export async function askExplorationQuestion(history: ExplorationMessage[], signal?: AbortSignal, onFailure?: (reason: AIRequestFailure) => void): Promise<string | null> {
   const raw = await deepseekChat(EXPLORATION_QUESTION_SYSTEM, JSON.stringify({ history }), {
-    timeout: 45_000, maxTokens: 300, signal,
+    timeout: 45_000, maxTokens: 300, signal, onFailure,
   })
   return raw ? parseExplorationQuestion(raw) : null
 }
 
-export async function summarizeExploration(history: ExplorationMessage[], signal?: AbortSignal): Promise<ExplorationSummary | null> {
+export async function summarizeExploration(history: ExplorationMessage[], signal?: AbortSignal, onFailure?: (reason: AIRequestFailure) => void): Promise<ExplorationSummary | null> {
   const raw = await deepseekChat(EXPLORATION_SUMMARY_SYSTEM, JSON.stringify({ history }), {
-    timeout: 45_000, maxTokens: 1200, signal,
+    timeout: 45_000, maxTokens: 1200, signal, onFailure,
   })
   return raw ? parseExplorationSummary(raw, history) : null
 }
@@ -359,6 +382,7 @@ const REVIEW_SYSTEM = `你是一个温柔的信念梳理助手。用户正在做
 export async function classifyInput(
   content: string,
   existingNodes: Array<{ id: string; content: string; type: string }>,
+  onFailure?: (reason: AIRequestFailure) => void,
 ): Promise<ClassifyResult | null> {
   const userMessage = JSON.stringify({
     userInput: content,
@@ -369,7 +393,7 @@ export async function classifyInput(
     })),
   })
 
-  const raw = await deepseekChat(CLASSIFY_SYSTEM, userMessage, { timeout: 20_000, maxTokens: 600 })
+  const raw = await deepseekChat(CLASSIFY_SYSTEM, userMessage, { timeout: 20_000, maxTokens: 600, onFailure })
   if (!raw) return null
 
   const type = validateNodeType(raw.type)

@@ -6,6 +6,7 @@ interface Props {
   visible: boolean
   loading: boolean
   error: boolean
+  errorMessage?: string
   originalText: string
   result: ClassifyResult | null
   duplicate?: { id: string; content: string } | null
@@ -19,6 +20,7 @@ export default function AISuggestionToast({
   visible,
   loading,
   error,
+  errorMessage,
   originalText,
   result,
   duplicate,
@@ -114,7 +116,7 @@ export default function AISuggestionToast({
               {error && !loading && (
                 <div className="space-y-4">
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    AI 暂时无法回应，已为你保留原始输入
+                    {errorMessage || 'AI 暂时无法回应。你可以先保留原文。'}
                   </p>
                   <button
                     className="text-sm px-4 py-1.5 rounded-full transition-all duration-200"
@@ -125,7 +127,7 @@ export default function AISuggestionToast({
                     }}
                     onClick={onKeepOriginal}
                   >
-                    好的
+                    保留原文
                   </button>
                 </div>
               )}

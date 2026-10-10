@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { db, type BeliefNode, type ConversationSession, type ExplorationCandidate } from '../db'
 import { listExplorations, retainExplorationCandidate, saveExploration } from '../db/explorations'
 import { useBeliefStore } from '../stores/useBeliefStore'
-import { askExplorationQuestion, getExplorationAvailability, summarizeExploration } from '../utils/deepseek'
+import { askExplorationQuestion, describeAIRequestFailure, getExplorationAvailability, summarizeExploration } from '../utils/deepseek'
 import { appendThought, EXPLORATION_TYPES, newExploration, normalizeExploration } from '../utils/exploration'
 import { readExplorationRecovery, storeExplorationRecovery } from '../utils/explorationRecovery'
 import { formatDate, getTypeLabel } from './utils'
@@ -164,12 +164,16 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
       if (controller.signal.aborted) return
       setAvailability(reason)
       if (reason) return
+      let failureMessage: string | undefined
+      const onFailure = (reason: Parameters<typeof describeAIRequestFailure>[0]) => {
+        failureMessage = describeAIRequestFailure(reason, true)
+      }
       const result = kind === 'question'
-        ? await askExplorationQuestion(current.history, controller.signal)
-        : await summarizeExploration(current.history, controller.signal)
+        ? await askExplorationQuestion(current.history, controller.signal, onFailure)
+        : await summarizeExploration(current.history, controller.signal, onFailure)
       if (controller.signal.aborted || request.current !== controller || sessionRef.current?.id !== current.id) return
       if (!result) {
-        setError('AI 暂时没有给出合适的回应。你的原话已保存，可以继续自己写，或再次点击重试。')
+        setError(failureMessage || 'AI 暂时没有给出合适的回应。你的原话已保存，可以继续自己写，或再次点击重试。')
         return
       }
       const latest = sessionRef.current

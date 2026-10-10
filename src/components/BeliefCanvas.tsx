@@ -13,7 +13,7 @@ import ThoughtJournalPanel from './ThoughtJournalPanel'
 import BookQAPanel from './BookQAPanel'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
-import { classifyInput, type ClassifyResult } from '../utils/deepseek'
+import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
 import {
   getNodeColor,
   formatDate,
@@ -224,7 +224,7 @@ export default function BeliefCanvas() {
   // AI 建议状态
   const [inputValue, setInputValue] = useState('')
   const [aiToast, setAiToast] = useState<{
-    visible: boolean; loading: boolean; error: boolean
+    visible: boolean; loading: boolean; error: boolean; errorMessage?: string
     originalText: string; result: ClassifyResult | null
     duplicate?: { id: string; content: string } | null
   }>({ visible: false, loading: false, error: false, originalText: '', result: null })
@@ -535,9 +535,12 @@ export default function BeliefCanvas() {
     // AI 分类流程
     setAiToast({ visible: true, loading: true, error: false, originalText: content, result: null })
 
-    const result = await classifyInput(content, getExistingNodesSummary())
+    let errorMessage: string | undefined
+    const result = await classifyInput(content, getExistingNodesSummary(), reason => {
+      errorMessage = describeAIRequestFailure(reason)
+    })
     if (!result) {
-      setAiToast({ visible: true, loading: false, error: true, originalText: content, result: null })
+      setAiToast({ visible: true, loading: false, error: true, errorMessage, originalText: content, result: null })
       return
     }
 
@@ -1766,6 +1769,7 @@ export default function BeliefCanvas() {
         visible={aiToast.visible}
         loading={aiToast.loading}
         error={aiToast.error}
+        errorMessage={aiToast.errorMessage}
         originalText={aiToast.originalText}
         result={aiToast.result}
         duplicate={aiToast.duplicate}
