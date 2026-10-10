@@ -44,9 +44,15 @@ export default function UserManualPanel({ open, onClose }: Props) {
     },
     {
       id: 'ai',
-      title: 'AI 功能',
+      title: '探索与 AI',
       icon: '🤖',
       content: <AIGuide />,
+    },
+    {
+      id: 'data',
+      title: '数据与备份',
+      icon: '💾',
+      content: <DataGuide />,
     },
     {
       id: 'shortcuts',
@@ -138,9 +144,11 @@ export default function UserManualPanel({ open, onClose }: Props) {
 function IconsGuide() {
   const items = [
     { icon: '📋', name: '信念总览', desc: '查看信念树、领域分类、待破除/待坚定列表、垃圾箱' },
+    { icon: '📚', name: '书本问答', desc: '选择已收录的书，提问书中概念；需要时可单次结合自己的信念' },
     { icon: '💡', name: '我的探索', desc: '保存自己的思考，需要时让 AI 问一个问题；旧深度思考笔记也在这里' },
     { icon: '🌿', name: '自动梳理布局', desc: '开启/关闭力导向自动布局，让节点自动排列。再次点击关闭' },
     { icon: '⚙️', name: '设置', desc: '账号信息、定期梳理开关、手动触发梳理、数据导出（JSON/Markdown）' },
+    { icon: '❓', name: '使用手册', desc: '随时查看画布、探索和数据保存方式' },
   ]
 
   return (
@@ -303,7 +311,7 @@ function InputGuide() {
       <div className="flex items-center gap-2">
         <span className="text-sm">📌</span>
         <span className="text-xs" style={{ color: '#9C9088' }}>
-          右侧的 📌 按钮显示今日待办数量，点击打开待办面板。Ctrl+Enter 也可以快速添加。
+          右侧的 📌 按钮显示未完成待办数量，点击打开「我的待办」。Ctrl+Enter 也可以快速添加。
         </span>
       </div>
 
@@ -323,6 +331,9 @@ function AIGuide() {
           在底部输入框输入文字后，点击左侧的 🤖 按钮，AI 会判断信念类型、润色表达、建议领域分类，并识别与已有节点的关联。
           结果以浮层卡片展示，可选择「采纳建议」「仅分类」或「保留原样」。
         </p>
+        <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
+          AI 暂时无法回应时，原始输入仍在建议卡片中；点击「保留原文」即可将它加入画布。
+        </p>
       </div>
 
       <div>
@@ -339,10 +350,21 @@ function AIGuide() {
           不需要先认可 AI 的解释，也没有必须得出结论的轮数。可以说不符合、暂时不知道，或停止问询后继续自己写。
         </p>
         <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
-          原话、问题、草稿、你改写的候选表达和历次整理会保存在当前浏览器。上方列表可以继续过去的探索；加入画布的内容能从节点详情回看来源。尚未跨设备同步。
+          原话、问题、草稿、你改写的候选表达和历次整理会保存在当前浏览器。上方列表可以继续过去的探索；加入画布的内容能从节点详情回看来源。
         </p>
         <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
           以前在“深度思考”写下的笔记保留在探索中的折叠区。可以阅读原文，或从一篇笔记继续探索；原笔记不会被改动。
+        </p>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>📚 书本问答</p>
+        <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
+          先选书再提问。默认「仅讲书中概念」，回答依据当前收录的书中段落解释概念，并显示检索到的章节；收录内容不足时会说明范围。
+          如果想对照自己的经历，本次提问前可开启「结合我的信念」，AI 才会参考当前账号画布中可用的信念记录。发送后此选项会自动关闭，下次提问仍默认只讲书。
+        </p>
+        <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
+          书籍问答记录只在本次打开的面板中显示；关闭面板后不会保留。
         </p>
       </div>
 
@@ -375,10 +397,25 @@ function AIGuide() {
   )
 }
 
+function DataGuide() {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
+        当前账号和记录保存在这台设备的这个浏览器里，尚未跨设备同步。在另一台设备登录同名账号，也不会自动看到这里的画布与探索记录。清除浏览器网站数据前，请先导出备份。
+      </p>
+      <GuideItem action="⚙️ 设置 → JSON 备份" result="导出当前账号的画布、日记、待办和探索记录，适合留存完整备份" />
+      <GuideItem action="⚙️ 设置 → Markdown 报告" result="导出画布节点与连线的文字报告，不包含探索与待办" />
+      <TipBox>
+        目前只有导出，没有在网站内导入备份的功能。请妥善保存 JSON 文件，暂时不要把它当作跨设备同步方式。
+      </TipBox>
+    </div>
+  )
+}
+
 function ShortcutsGuide() {
   const shortcuts = [
     { key: 'Enter', desc: '底部输入框：直接发送到画布\n编辑模式：保存文字' },
-    { key: 'Ctrl + Enter', desc: '将输入存入今日待办' },
+    { key: 'Ctrl + Enter', desc: '将输入存入「我的待办」' },
     { key: 'Esc', desc: '取消选中 / 退出聚焦 / 关闭编辑 / 关闭浮层' },
     { key: 'Delete', desc: '删除选中的节点（软删除，进入垃圾箱）\n删除选中的连线' },
     { key: '滚轮', desc: '缩放画布' },
@@ -424,7 +461,7 @@ function TypeGuide() {
     { type: 'thought', label: '想法', desc: '具体的想法或念头', r: 9 },
     { type: 'emotion', label: '情绪', desc: '具体的情绪体验', r: 9 },
     { type: 'behavior', label: '行为', desc: '由信念驱动的具体行为', r: 9 },
-    { type: 'material_reality', label: '物质现实', desc: '客观发生的事件或事实', r: 14 },
+    { type: 'material_reality', label: '物质现实', desc: '你记录的具体事件或现实情况', r: 14 },
     { type: 'seed', label: '未分类', desc: '刚刚捕捉的原始念头，尚未归类', r: 8 },
   ]
 
