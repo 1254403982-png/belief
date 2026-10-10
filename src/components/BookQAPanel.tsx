@@ -93,7 +93,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
     } else {
       appendMessage(bookId, {
         role: 'assistant',
-        content: '抱歉，暂时无法回答。请确认已设置激活码，或稍后再试。',
+        content: '抱歉，暂时无法回答，请稍后再试。',
       })
     }
 

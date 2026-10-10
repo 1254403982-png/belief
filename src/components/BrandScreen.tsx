@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../db'
-import { validateCode } from '../utils/activation'
 
 type ScreenState = 'brand' | 'login' | 'register'
 
@@ -10,7 +9,6 @@ export default function BrandScreen() {
   const [screenState, setScreenState] = useState<ScreenState>('brand')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [activationCode, setActivationCode] = useState('')
   const [nickname, setNickname] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -39,7 +37,6 @@ export default function BrandScreen() {
   const resetForm = () => {
     setUsername('')
     setPassword('')
-    setActivationCode('')
     setNickname('')
     setConfirmPassword('')
     setError('')
@@ -100,10 +97,6 @@ export default function BrandScreen() {
     setLoading(true)
     try {
       const user = await db.register(username.trim(), password, nickname.trim() || undefined)
-      // 如果填写了激活码且有效，立即激活
-      if (activationCode.trim() && validateCode(activationCode.trim())) {
-        await db.activate(user.id, activationCode.trim())
-      }
       localStorage.setItem('currentUserId', user.id)
       ;(window as any).__fromLogin = true
       navigate('/canvas')
@@ -112,7 +105,7 @@ export default function BrandScreen() {
     } finally {
       setLoading(false)
     }
-  }, [username, password, confirmPassword, nickname, activationCode, navigate])
+  }, [username, password, confirmPassword, nickname, navigate])
 
   return (
     <div
@@ -267,13 +260,6 @@ export default function BrandScreen() {
                 placeholder="昵称（选填，显示在应用中）"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-              />
-              <input
-                className="input-underline"
-                type="text"
-                placeholder="激活码（选填，购买后获取）"
-                value={activationCode}
-                onChange={(e) => setActivationCode(e.target.value)}
               />
               <input
                 className="input-underline"

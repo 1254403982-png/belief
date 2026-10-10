@@ -37,7 +37,6 @@ beforeEach(async () => {
   await Promise.all(db.tables.map(table => table.clear()))
   await db.userAccounts.add({
     id: userId, username: 'test', passwordHash: 'not-a-real-password', createdAt: new Date(),
-    activatedAt: new Date(), activationExpiresAt: new Date('2099-01-01'),
   })
 })
 
@@ -150,13 +149,20 @@ test('停止问询后忽略晚到的响应，新草稿不被覆盖', async () =>
   assert.equal(session.draft, '等的时候我又想到了一点')
 })
 
-test('未激活时保留手动记录，不发出 AI 请求', async () => {
-  await db.userAccounts.update(userId, { activationExpiresAt: new Date('2000-01-01') })
+test('没有激活码的新账号也能请求 AI，并保留原话', async () => {
   await mount()
-  await typeDraft('没有激活码也要保存')
+  await typeDraft('我想慢慢理清这件事')
   await click('问我一个问题')
-  assert.equal(calls.length, 0)
-  assert.equal((await current()).history[0].content, '没有激活码也要保存')
+  assert.equal(calls.length, 1)
+  assert.equal((await current()).history[0].content, '我想慢慢理清这件事')
+})
+
+test('旧账号过期的激活信息不会限制 AI', async () => {
+  await db.userAccounts.update(userId, { activationExpiresAt: new Date('2000-01-01') } as any)
+  await mount()
+  await typeDraft('旧账号也可以继续探索')
+  await click('问我一个问题')
+  assert.equal(calls.length, 1)
 })
 
 test('用户主动整理才产生候选，编辑自动保存，重复入图不产生重复节点或自动连线', async () => {

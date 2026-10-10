@@ -64,18 +64,17 @@ const MODEL = 'deepseek-chat'
 const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 
 /**
- * 获取当前用户的 API Key 和激活状态
- * 优先使用环境变量中的 API Key
+ * 当前本地账号均可使用 AI；模型凭据由部署环境提供。
  */
-async function getApiKey(): Promise<{ key: string; isActivated: boolean }> {
+async function getApiKey(): Promise<string> {
   const userId = localStorage.getItem('currentUserId')
-  if (!userId) return { key: DEEPSEEK_API_KEY, isActivated: false }
+  if (!userId || !DEEPSEEK_API_KEY) return ''
 
   try {
-    const status = await db.getActivationStatus(userId)
-    return { key: DEEPSEEK_API_KEY, isActivated: status.isActivated }
+    const user = await db.userAccounts.get(userId)
+    return user ? DEEPSEEK_API_KEY : ''
   } catch {
-    return { key: DEEPSEEK_API_KEY, isActivated: false }
+    return ''
   }
 }
 
@@ -84,8 +83,8 @@ async function deepseekChat(
   userMessage: string,
   options?: { timeout?: number; maxTokens?: number; previousMessages?: Array<{ role: string; content: string }>; signal?: AbortSignal },
 ): Promise<Record<string, unknown> | null> {
-  const { key, isActivated } = await getApiKey()
-  if (!key || !isActivated) return null
+  const key = await getApiKey()
+  if (!key) return null
   if (options?.signal?.aborted) return null
 
   const controller = new AbortController()
@@ -137,9 +136,10 @@ async function deepseekChat(
 
 /** 问询与整理分别调用；普通保存不会调用 AI。 */
 export async function getExplorationAvailability(): Promise<string | null> {
-  const { key, isActivated } = await getApiKey()
-  if (!isActivated) return '尚未激活 AI，可以先自在书写。需要问询时可在设置中填写激活码。'
-  if (!key) return 'AI 暂未配置好，你仍然可以书写和保存记录。'
+  const key = await getApiKey()
+  if (!key) return DEEPSEEK_API_KEY
+    ? '请先登录，你仍然可以书写和保存记录。'
+    : 'AI 暂未配置好，你仍然可以书写和保存记录。'
   return null
 }
 
@@ -182,8 +182,8 @@ async function deepseekChatText(
   userMessage: string,
   options?: { timeout?: number; maxTokens?: number },
 ): Promise<string | null> {
-  const { key, isActivated } = await getApiKey()
-  if (!key || !isActivated) return null
+  const key = await getApiKey()
+  if (!key) return null
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), options?.timeout ?? 20_000)

@@ -110,10 +110,6 @@ export interface UserAccount {
   username: string
   passwordHash: string
   nickname?: string             // 用户昵称
-  isPaid?: boolean
-  activationCode?: string       // 用户输入的激活码
-  activatedAt?: Date            // 激活时间
-  activationExpiresAt?: Date    // 激活到期时间（30天）
   createdAt: Date
   reviewSettings?: {
     monthlyEnabled: boolean
@@ -211,40 +207,6 @@ class BeliefDB extends Dexie {
     }
     const newHash = await this.hashPassword(newPassword)
     await this.userAccounts.update(userId, { passwordHash: newHash })
-  }
-
-  /** 激活账号 */
-  async activate(userId: string, code: string): Promise<UserAccount> {
-    const now = new Date()
-    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    await this.userAccounts.update(userId, {
-      activationCode: code,
-      activatedAt: now,
-      activationExpiresAt: expiresAt,
-    })
-    const user = await this.userAccounts.get(userId)
-    if (!user) throw new Error('用户不存在')
-    return user
-  }
-
-  /** 获取激活状态 */
-  async getActivationStatus(userId: string): Promise<{
-    isActivated: boolean
-    remainingDays: number
-    expiresAt: Date | null
-  }> {
-    const user = await this.userAccounts.get(userId)
-    if (!user || !user.activatedAt || !user.activationExpiresAt) {
-      return { isActivated: false, remainingDays: 0, expiresAt: null }
-    }
-    const remaining = Math.ceil(
-      (user.activationExpiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
-    )
-    return {
-      isActivated: remaining > 0,
-      remainingDays: Math.max(0, remaining),
-      expiresAt: user.activationExpiresAt,
-    }
   }
 
   /** 修改昵称 */
