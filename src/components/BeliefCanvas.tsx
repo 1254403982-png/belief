@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, type BeliefEdge, type DailyTask } from '../db'
@@ -10,10 +10,10 @@ import SettingsPanel from './SettingsPanel'
 import ReviewPanel from './ReviewPanel'
 import EdgeInfoPopup from './EdgeInfoPopup'
 import ThoughtJournalPanel from './ThoughtJournalPanel'
-import BookQAPanel from './BookQAPanel'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
 import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
+
 import {
   getNodeColor,
   formatDate,
@@ -30,6 +30,8 @@ import {
   hasPath,
   findRedundantEdgeIds,
 } from './utils'
+
+const BookQAPanel = lazy(() => import('./BookQAPanel'))
 
 // ====== 坐标转换 ======
 
@@ -218,6 +220,7 @@ export default function BeliefCanvas() {
   const [dailyTaskCount, setDailyTaskCount] = useState(0)
   const [manualOpen, setManualOpen] = useState(false)
   const [bookQAOpen, setBookQAOpen] = useState(false)
+  const [bookQAHasOpened, setBookQAHasOpened] = useState(false)
   const [edgePopup, setEdgePopup] = useState<{ edgeId: string; screenX: number; screenY: number } | null>(null)
   const selectedEdgeRef = useRef<string | null>(null)
 
@@ -1523,7 +1526,7 @@ export default function BeliefCanvas() {
           <button
             className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
             title="书本问答"
-            onClick={() => setBookQAOpen(true)}
+            onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
             📚
           </button>
@@ -1759,7 +1762,9 @@ export default function BeliefCanvas() {
         sourceNodeId={explorationSourceNodeId} onClose={() => setDeepInsightOpen(false)} />
 
       {/* 书本问答面板 */}
-      <BookQAPanel open={bookQAOpen} onClose={() => setBookQAOpen(false)} />
+      {bookQAHasOpened && <Suspense fallback={null}>
+        <BookQAPanel open={bookQAOpen} onClose={() => setBookQAOpen(false)} />
+      </Suspense>}
 
       {/* 梳理面板 */}
       <ReviewPanel open={reviewOpen} reviewType={reviewType} onClose={() => setReviewOpen(false)} />

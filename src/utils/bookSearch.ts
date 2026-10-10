@@ -47,6 +47,14 @@ function scoreChunk(queryTokens: string[], chunkText: string): number {
   return score
 }
 
+function excerptAroundMatch(text: string, queryTokens: string[]): string {
+  const matches = queryTokens.map(token => text.indexOf(token)).filter(index => index >= 0)
+  const firstMatch = matches.length > 0 ? Math.min(...matches) : 0
+  const start = Math.max(0, firstMatch - 280)
+  const end = Math.min(text.length, start + 1600)
+  return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`
+}
+
 /** 从书本中检索最相关的 N 个片段 */
 export function searchBook(book: BookData, query: string, topN = 5): SearchResult[] {
   const tokens = tokenize(query)
@@ -54,7 +62,7 @@ export function searchBook(book: BookData, query: string, topN = 5): SearchResul
 
   const scored = book.chunks.map(chunk => ({
     chapter: chunk.chapter,
-    snippet: chunk.text.slice(0, 1200), // 截取前 1200 字
+    snippet: excerptAroundMatch(chunk.text, tokens),
     score: scoreChunk(tokens, chunk.text),
   }))
 

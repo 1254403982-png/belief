@@ -34,7 +34,7 @@ export const soulEternal: BookData = {
     title: '灵魂永生',
     author: 'Jane Roberts (赛斯 口授)',
     description:
-      '赛斯书《灵魂永生》(Seth Speaks: The Eternal Validity of the Soul) 完整中文版。赛斯通过珍·罗勃兹口授，探讨多次元人格、意识本质、转世、梦、内在感官、灵魂等主题。',
+      '赛斯书《灵魂永生》(Seth Speaks: The Eternal Validity of the Soul) 已收录章节的中文版资料，涵盖多次元人格、意识本质、转世、梦、内在感官等主题。',
     emoji: '📖',
   },
   chunks: [

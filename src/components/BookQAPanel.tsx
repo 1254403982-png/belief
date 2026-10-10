@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { BookData, SearchResult } from '../data/books/types'
+import BookAnswer from './BookAnswer'
 import { searchBook } from '../utils/bookSearch'
+import { selectBookBeliefs } from '../utils/bookBeliefs'
 import { askBook } from '../utils/deepseek'
 import { useBeliefStore } from '../stores/useBeliefStore'
 
@@ -13,6 +15,8 @@ interface Props {
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  mode?: 'book' | 'personal'
+  sources?: string[]
 }
 
 export default function BookQAPanel({ open, onClose }: Props) {
@@ -20,9 +24,9 @@ export default function BookQAPanel({ open, onClose }: Props) {
   const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>({})
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [aiEnabled, setAiEnabled] = useState(false)
+  const [includeBeliefs, setIncludeBeliefs] = useState(false)
   const [books, setBooks] = useState<BookData[]>([])
-  const [flashAi, setFlashAi] = useState(false)
+  const nodes = useBeliefStore(state => state.nodes)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // 懒加载书本数据
@@ -34,6 +38,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
   const selectedBook = selectedBookId ? books.find((b: BookData) => b.meta.id === selectedBookId) : undefined
   const messages = selectedBookId ? (messagesMap[selectedBookId] ?? []) : []
+  const personalBeliefs = selectBookBeliefs(nodes, localStorage.getItem('currentUserId') ?? '')
 
   // 自动滚动到底部
   useEffect(() => {
@@ -42,9 +47,13 @@ export default function BookQAPanel({ open, onClose }: Props) {
     }
   }, [messages])
 
-  const handleSelectBook = (id: string) => setSelectedBookId(id)
+  const handleSelectBook = (id: string) => {
+    setIncludeBeliefs(false)
+    setSelectedBookId(id)
+  }
 
   const handleBack = () => {
+    setIncludeBeliefs(false)
     setSelectedBookId(null)
   }
 
@@ -56,15 +65,11 @@ export default function BookQAPanel({ open, onClose }: Props) {
     const q = input.trim()
     if (!q || !selectedBook || loading) return
 
-    if (!aiEnabled) {
-      setFlashAi(true)
-      setTimeout(() => setFlashAi(false), 600)
-      return
-    }
-
     const bookId = selectedBook.meta.id
+    const usePersonal = includeBeliefs && personalBeliefs.length > 0
     setInput('')
-    appendMessage(bookId, { role: 'user', content: q })
+    setIncludeBeliefs(false)
+    appendMessage(bookId, { role: 'user', content: q, mode: usePersonal ? 'personal' : 'book' })
     setLoading(true)
 
     // 1. 本地检索
@@ -73,23 +78,22 @@ export default function BookQAPanel({ open, onClose }: Props) {
     if (results.length === 0) {
       appendMessage(bookId, {
         role: 'assistant',
-        content: '书中没有找到与这个问题直接相关的内容。试试换个问法，或者用书中的关键词来提问？',
+        content: '当前收录的章节里没有检索到直接相关的段落。可以换个问法，或试试书中的关键词。',
       })
       setLoading(false)
       return
     }
 
-    // 2. AI 回答（附带用户信念作为个人背景）
-    const nodes = useBeliefStore.getState().nodes
+    // 只有用户主动选择个人模式时，才向模型传入画布中的信念。
     const answer = await askBook(
       selectedBook.meta.title,
       q,
       results.map((r: SearchResult) => ({ chapter: r.chapter, snippet: r.snippet })),
-      nodes.length > 0 ? nodes.map(n => n.content) : undefined,
+      usePersonal ? { personalBeliefs } : undefined,
     )
 
     if (answer) {
-      appendMessage(bookId, { role: 'assistant', content: answer })
+      appendMessage(bookId, { role: 'assistant', content: answer, sources: [...new Set(results.map(r => r.chapter))] })
     } else {
       appendMessage(bookId, {
         role: 'assistant',
@@ -104,6 +108,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
     setSelectedBookId(null)
     setMessagesMap({})
     setInput('')
+    setIncludeBeliefs(false)
     onClose()
   }
 
@@ -166,7 +171,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                 /* 书本列表 */
                 <div className="px-6 pb-6 space-y-3">
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    选择一本书，基于书中内容提问。AI 会从书中检索相关段落并回答。
+                    选择一本书，先理解书中的概念；需要时再选择是否结合自己的信念。
                   </p>
                   {books.map(book => (
                     <button
@@ -227,10 +232,19 @@ export default function BookQAPanel({ open, onClose }: Props) {
                             backgroundColor: 'rgba(139, 164, 188, 0.08)',
                             color: '#4A4036',
                             borderRadius: '16px 16px 16px 4px',
-                            whiteSpace: 'pre-wrap',
                           }}
                         >
-                          {msg.content}
+                          {msg.role === 'user' ? (
+                            <>
+                              <p>{msg.content}</p>
+                              <p className="text-[11px] mt-1 opacity-60">{msg.mode === 'personal' ? '结合我的信念' : '仅讲书中概念'}</p>
+                            </>
+                          ) : (
+                            <>
+                              <BookAnswer content={msg.content} />
+                              {msg.sources && <p className="text-[11px] mt-2 opacity-60">检索段落：{msg.sources.join('、')}</p>}
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -250,6 +264,17 @@ export default function BookQAPanel({ open, onClose }: Props) {
             {/* 输入框（仅在聊天视图显示） */}
             {selectedBook && (
               <div className="flex-shrink-0 px-6 pb-5 pt-2">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <span className="text-xs" style={{ color: '#9C9088' }}>默认只解释书中概念</span>
+                  <button type="button" role="switch" aria-checked={includeBeliefs}
+                    aria-label="本次结合我的信念" disabled={loading || personalBeliefs.length === 0}
+                    onClick={() => setIncludeBeliefs(value => !value)}
+                    className="text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-40"
+                    style={{ color: includeBeliefs ? '#5A7A68' : '#7A7670', backgroundColor: includeBeliefs ? 'rgba(160, 200, 176, 0.15)' : 'rgba(200, 169, 110, 0.08)' }}>
+                    {includeBeliefs ? '✓ ' : ''}结合我的信念
+                  </button>
+                </div>
+                {personalBeliefs.length === 0 && <p className="text-xs mb-2" style={{ color: '#9C9088' }}>画布中还没有可参考的信念记录</p>}
                 <div className="flex items-center gap-2">
                   <input
                     className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none transition-all"
@@ -258,22 +283,18 @@ export default function BookQAPanel({ open, onClose }: Props) {
                       border: '1px solid #E0D8CC',
                       color: '#4A4036',
                     }}
-                    placeholder={aiEnabled ? '输入你的疑问，回车发送...' : '先点亮 AI 按钮，再输入提问...'}
+                    placeholder="问一个关于这本书的问题..."
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void handleSend() }}
                   />
-                  {/* AI 功能启用键 */}
-                  <motion.button
-                    className="flex-shrink-0 px-2 py-2 select-none"
-                    style={{ color: aiEnabled ? '#8B6914' : '#C4B8B0' }}
-                    animate={flashAi ? { scale: [1, 1.15, 1] } : {}}
-                    transition={{ duration: 0.3 }}
-                    onClick={() => setAiEnabled(v => !v)}
-                    title={aiEnabled ? 'AI 已启用 · 点击关闭' : '点击启用 AI 问答'}
+                  <button type="button" disabled={loading || !input.trim()}
+                    className="flex-shrink-0 text-sm px-3 py-2 rounded-full disabled:opacity-40"
+                    style={{ backgroundColor: 'rgba(200, 169, 110, 0.12)', color: '#5C4A3A' }}
+                    onClick={() => void handleSend()}
                   >
-                    <span className="font-serif text-sm font-bold tracking-wider">AI</span>
-                  </motion.button>
+                    发送
+                  </button>
                 </div>
               </div>
             )}
