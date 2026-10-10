@@ -1,5 +1,5 @@
 import { db, type BeliefNode, type ConversationSession } from './index'
-import { normalizeExploration } from '../utils/exploration'
+import { newExploration, normalizeExploration } from '../utils/exploration'
 
 export async function saveExploration(session: ConversationSession): Promise<void> {
   if (!session.userId) throw new Error('请先登录')
@@ -13,6 +13,30 @@ export async function saveExploration(session: ConversationSession): Promise<voi
 export async function listExplorations(userId: string): Promise<ConversationSession[]> {
   const sessions = await db.conversationSessions.where('userId').equals(userId).toArray()
   return sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map(normalizeExploration)
+}
+
+/** 旧笔记保留原表；每篇至多生成一条可继续的探索。 */
+export async function continueFromJournal(userId: string, journalId: string): Promise<ConversationSession> {
+  if (!userId) throw new Error('请先登录')
+  return db.transaction('rw', db.thoughtJournals, db.conversationSessions, async () => {
+    const journal = await db.thoughtJournals.get(journalId)
+    if (!journal || journal.userId !== userId) throw new Error('找不到这篇笔记')
+    const existing = await db.conversationSessions.where('userId').equals(userId)
+      .filter(session => session.sourceJournalId === journalId).first()
+    if (existing) return normalizeExploration(existing)
+
+    const original = journal.content || journal.title
+    const session = newExploration(userId)
+    session.title = journal.title
+    session.description = original
+    session.sourceJournalId = journal.id
+    session.history = [{
+      id: crypto.randomUUID(), role: 'user', kind: 'thought', content: original,
+      createdAt: journal.createdAt.toISOString(),
+    }]
+    await db.conversationSessions.add(session)
+    return session
+  })
 }
 
 /** 入图和来源标记在同一事务内提交。刷新、重复点击不会反复创建节点。 */

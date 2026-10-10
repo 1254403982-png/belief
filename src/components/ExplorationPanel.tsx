@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { db, type BeliefNode, type ConversationSession, type ExplorationCandidate } from '../db'
-import { listExplorations, retainExplorationCandidate, saveExploration } from '../db/explorations'
+import { db, type BeliefNode, type ConversationSession, type ExplorationCandidate, type ThoughtJournal } from '../db'
+import { continueFromJournal, listExplorations, retainExplorationCandidate, saveExploration } from '../db/explorations'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { askExplorationQuestion, describeAIRequestFailure, getExplorationAvailability, summarizeExploration } from '../utils/deepseek'
 import { appendThought, EXPLORATION_TYPES, newExploration, normalizeExploration } from '../utils/exploration'
@@ -20,6 +20,7 @@ type SaveState = 'saved' | 'saving' | 'error'
 export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeId }: Props) {
   const [session, setSession] = useState<ConversationSession | null>(null)
   const [sessions, setSessions] = useState<ConversationSession[]>([])
+  const [legacyJournals, setLegacyJournals] = useState<ThoughtJournal[]>([])
   const [busy, setBusy] = useState<Busy>(null)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [error, setError] = useState('')
@@ -89,9 +90,11 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
         if (!saved || recovery.updatedAt.getTime() > saved.updatedAt.getTime()) await saveExploration(recovery)
       }
       const list = await listExplorations(userId)
+      const journals = await db.thoughtJournals.where('userId').equals(userId).toArray()
       const reason = await getExplorationAvailability()
       if (cancelled) return
       setSessions(list)
+      setLegacyJournals(journals.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()))
       setAvailability(reason)
       const existing = sessionId ? list.find(item => item.id === sessionId)
         : sourceNodeId ? list.find(item => item.sourceNodeId === sourceNodeId) : list[0]
@@ -140,6 +143,22 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
       install(list.find(item => item.id === id) ?? newExploration(userId))
       inputRef.current?.focus()
     } catch { setError('请先重试保存当前记录，再切换探索。') }
+  }
+
+  const openLegacyJournal = async (journalId: string) => {
+    stopAI()
+    try {
+      if (sessionRef.current?.draft?.trim()) await commit(sessionRef.current)
+      await writes.current
+      const userId = localStorage.getItem('currentUserId')
+      if (!userId) return
+      const next = await continueFromJournal(userId, journalId)
+      setSessions(await listExplorations(userId))
+      install(next)
+      inputRef.current?.focus()
+    } catch {
+      setError('旧笔记暂时无法打开，请确认当前记录已保存后重试。')
+    }
   }
 
   const saveThought = async (): Promise<ConversationSession | null> => {
@@ -297,6 +316,21 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
             <summary className="cursor-pointer py-2">旧版分析存档</summary>
             <p className="text-xs my-2">保留迁移前的完整结果，不代表你已认可其中的判断。</p>
             <LegacyArchive value={session.lastResult} />
+          </details>}
+          {legacyJournals.length > 0 && <details className="border-t border-[#E0D8CC] pt-4 text-sm text-[#7A7670]">
+            <summary className="cursor-pointer py-2">以前的深度思考笔记 · {legacyJournals.length} 篇</summary>
+            <p className="text-xs leading-6 mb-3">旧笔记保留原样。选择“从这篇继续探索”后，原文会进入一段可继续的探索，旧笔记仍在这里。</p>
+            <div className="space-y-4">
+              {legacyJournals.map(journal => <article key={journal.id} className="rounded-xl border border-[#E0D8CC] bg-[#FFFBF5] p-4 space-y-2">
+                <h3 className="text-sm text-[#4A4036]">{journal.title}</h3>
+                <p className="text-xs">{formatDate(journal.createdAt)}</p>
+                {journal.content && <p className="whitespace-pre-wrap break-words leading-7 text-sm text-[#5C4A3A]">{journal.content}</p>}
+                <button className="text-xs text-[#5C4A3A] underline py-1" disabled={!!busy || loading}
+                  onClick={() => void openLegacyJournal(journal.id)}>
+                  {sessions.some(item => item.sourceJournalId === journal.id) ? '继续这篇的探索' : '从这篇继续探索'}
+                </button>
+              </article>)}
+            </div>
           </details>}
         </div>
 

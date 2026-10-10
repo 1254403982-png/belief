@@ -103,6 +103,7 @@ export interface ConversationSession {
   draft?: string
   summaries?: ExplorationSummary[]
   sourceNodeId?: string
+  sourceJournalId?: string             // 从旧「深度思考」笔记继续探索
 }
 
 export interface UserAccount {

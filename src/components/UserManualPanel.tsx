@@ -138,8 +138,7 @@ export default function UserManualPanel({ open, onClose }: Props) {
 function IconsGuide() {
   const items = [
     { icon: '📋', name: '信念总览', desc: '查看信念树、领域分类、待破除/待坚定列表、垃圾箱' },
-    { icon: '📓', name: '深度思考记录本', desc: '撰写和保存反思笔记，支持随时编辑和删除' },
-    { icon: '💡', name: '我的探索', desc: '先保存自己的思考，需要时让 AI 问一个问题，随时退出后继续' },
+    { icon: '💡', name: '我的探索', desc: '保存自己的思考，需要时让 AI 问一个问题；旧深度思考笔记也在这里' },
     { icon: '🌿', name: '自动梳理布局', desc: '开启/关闭力导向自动布局，让节点自动排列。再次点击关闭' },
     { icon: '⚙️', name: '设置', desc: '账号信息、定期梳理开关、手动触发梳理、数据导出（JSON/Markdown）' },
   ]
@@ -341,6 +340,9 @@ function AIGuide() {
         </p>
         <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
           原话、问题、草稿、你改写的候选表达和历次整理会保存在当前浏览器。上方列表可以继续过去的探索；加入画布的内容能从节点详情回看来源。尚未跨设备同步。
+        </p>
+        <p className="text-xs mt-2" style={{ color: '#9C9088' }}>
+          以前在“深度思考”写下的笔记保留在探索中的折叠区。可以阅读原文，或从一篇笔记继续探索；原笔记不会被改动。
         </p>
       </div>
 

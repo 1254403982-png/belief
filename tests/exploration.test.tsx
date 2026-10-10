@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import { create, act } from 'react-test-renderer'
 import { db } from '../src/db'
-import { listExplorations, retainExplorationCandidate, saveExploration } from '../src/db/explorations'
+import { continueFromJournal, listExplorations, retainExplorationCandidate, saveExploration } from '../src/db/explorations'
 import { appendThought, newExploration, normalizeExploration, parseExplorationQuestion, parseExplorationSummary } from '../src/utils/exploration'
 import { readExplorationRecovery, storeExplorationRecovery } from '../src/utils/explorationRecovery'
 import ExplorationPanel from '../src/components/ExplorationPanel'
@@ -102,6 +102,23 @@ test('账号隔离，立即刷新能从草稿快照恢复且恢复日期类型',
   await saveExploration(session)
   assert.equal((await listExplorations('other')).length, 0)
   await assert.rejects(saveExploration({ ...session, userId: 'other' }))
+})
+
+test('旧深度思考笔记在探索里保留原文，并且重复继续不会产生副本', async () => {
+  await db.thoughtJournals.add({
+    id: 'old-journal', userId, title: '关于工作的笔记', content: '我今天想到一件事。\n还想继续写。',
+    createdAt: new Date('2020-01-01'), updatedAt: new Date('2020-01-01'),
+  })
+  await mount()
+  await click('从这篇继续探索')
+  const session = await current()
+  assert.equal(session.title, '关于工作的笔记')
+  assert.equal(session.sourceJournalId, 'old-journal')
+  assert.equal(session.history[0].content, '我今天想到一件事。\n还想继续写。')
+  assert.equal(await db.thoughtJournals.count(), 1)
+  await click('继续这篇的探索')
+  assert.equal(await db.conversationSessions.count(), 1)
+  await assert.rejects(continueFromJournal('other-user', 'old-journal'))
 })
 
 test('手动书写不调用 AI，关闭重开恢复原话和未提交草稿', async () => {

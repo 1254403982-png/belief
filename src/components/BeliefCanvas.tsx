@@ -9,7 +9,6 @@ import ExplorationPanel from './ExplorationPanel'
 import SettingsPanel from './SettingsPanel'
 import ReviewPanel from './ReviewPanel'
 import EdgeInfoPopup from './EdgeInfoPopup'
-import ThoughtJournalPanel from './ThoughtJournalPanel'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
 import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
@@ -211,7 +210,6 @@ export default function BeliefCanvas() {
   const [connectMode, setConnectMode] = useState<string | null>(null) // 连接模式：source node id
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [journalOpen, setJournalOpen] = useState(false)
   const [explorationSessionId, setExplorationSessionId] = useState<string | undefined>()
   const [explorationSourceNodeId, setExplorationSourceNodeId] = useState<string | undefined>()
   const [onboardingStep, setOnboardingStep] = useState(0) // 0=未开始, 1-3=引导步骤
@@ -1518,13 +1516,6 @@ export default function BeliefCanvas() {
           </button>
           <button
             className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
-            title="深度思考记录本"
-            onClick={() => setJournalOpen(true)}
-          >
-            📓
-          </button>
-          <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
             title="书本问答"
             onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
@@ -1744,8 +1735,6 @@ export default function BeliefCanvas() {
         onOpenManual={() => setManualOpen(true)}
       />
 
-      {/* 深度思考记录本 */}
-      <ThoughtJournalPanel open={journalOpen} onClose={() => setJournalOpen(false)} />
 
       {/* 今日待办面板 */}
       <DailyActionPanel
