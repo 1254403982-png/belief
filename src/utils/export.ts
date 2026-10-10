@@ -16,11 +16,12 @@ export async function exportAsJSON(userId: string): Promise<void> {
   const thoughtJournals = await db.thoughtJournals.where('userId').equals(userId).toArray()
   const dailyTasks = await db.dailyTasks.where('userId').equals(userId).toArray()
   const conversationSessions = await db.conversationSessions.where('userId').equals(userId).toArray()
+  const bookChats = await db.bookChats.where('userId').equals(userId).toArray()
 
   const data = {
     exportedAt: new Date().toISOString(),
     appVersion: '0.2.0',
-    backupVersion: 2,
+    backupVersion: 3,
     user: user ? {
       username: user.username,
       reviewSettings: user.reviewSettings,
@@ -33,6 +34,7 @@ export async function exportAsJSON(userId: string): Promise<void> {
     thoughtJournals,
     dailyTasks,
     conversationSessions,
+    bookChats,
   }
 
   downloadFile(

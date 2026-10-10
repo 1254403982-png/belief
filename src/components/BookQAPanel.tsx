@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { BookData, SearchResult } from '../data/books/types'
+import type { BookChatMessage } from '../db'
 import BookAnswer from './BookAnswer'
-import { searchBook } from '../utils/bookSearch'
+import { searchBookForConversation } from '../utils/bookSearch'
 import { selectBookBeliefs } from '../utils/bookBeliefs'
+import { appendBookChatMessage, loadBookChats } from '../utils/bookChat'
 import { askBook } from '../utils/deepseek'
 import { useBeliefStore } from '../stores/useBeliefStore'
 
@@ -12,22 +14,42 @@ interface Props {
   onClose: () => void
 }
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  mode?: 'book' | 'personal'
-  sources?: string[]
-}
-
 export default function BookQAPanel({ open, onClose }: Props) {
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
-  const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>({})
+  const [messagesMap, setMessagesMap] = useState<Record<string, BookChatMessage[]>>({})
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [chatReady, setChatReady] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [chatErrors, setChatErrors] = useState<Record<string, string>>({})
+  const [unsavedReplies, setUnsavedReplies] = useState<Record<string, BookChatMessage>>({})
   const [includeBeliefs, setIncludeBeliefs] = useState(false)
   const [books, setBooks] = useState<BookData[]>([])
   const nodes = useBeliefStore(state => state.nodes)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const lastSelectedChatIdRef = useRef('')
+  const userId = localStorage.getItem('currentUserId') ?? ''
+
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    setChatReady(false)
+    setLoadError('')
+    void loadBookChats(userId).then(chats => {
+      if (!active) return
+      setMessagesMap(previous => {
+        const next = { ...previous }
+        for (const chat of chats) {
+          if (!next[chat.id] || next[chat.id].length < chat.messages.length) next[chat.id] = chat.messages
+        }
+        return next
+      })
+      setChatReady(true)
+    }).catch(() => {
+      if (active) setLoadError('暂时无法读取书籍对话，请关闭后重新打开。')
+    })
+    return () => { active = false }
+  }, [open, userId])
 
   // 懒加载书本数据
   useEffect(() => {
@@ -37,17 +59,26 @@ export default function BookQAPanel({ open, onClose }: Props) {
   }, [open, books.length])
 
   const selectedBook = selectedBookId ? books.find((b: BookData) => b.meta.id === selectedBookId) : undefined
-  const messages = selectedBookId ? (messagesMap[selectedBookId] ?? []) : []
-  const personalBeliefs = selectBookBeliefs(nodes, localStorage.getItem('currentUserId') ?? '')
+  const selectedChatId = selectedBookId ? JSON.stringify([userId, selectedBookId]) : ''
+  const messages = selectedBookId ? (messagesMap[selectedChatId] ?? []) : []
+  const unsavedReply = unsavedReplies[selectedChatId]
+  const visibleError = loadError || chatErrors[selectedChatId]
+  const visibleMessages = unsavedReply
+    ? [...messages, unsavedReply]
+    : messages
+  const personalBeliefs = selectBookBeliefs(nodes, userId)
 
   // 自动滚动到底部
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, unsavedReply])
 
   const handleSelectBook = (id: string) => {
+    const chatId = JSON.stringify([userId, id])
+    if (lastSelectedChatIdRef.current !== chatId) setInput('')
+    lastSelectedChatIdRef.current = chatId
     setIncludeBeliefs(false)
     setSelectedBookId(id)
   }
@@ -57,57 +88,78 @@ export default function BookQAPanel({ open, onClose }: Props) {
     setSelectedBookId(null)
   }
 
-  const appendMessage = (bookId: string, msg: Message) => {
-    setMessagesMap(prev => ({ ...prev, [bookId]: [...(prev[bookId] ?? []), msg] }))
+  const appendMessage = async (accountId: string, bookId: string, message: BookChatMessage) => {
+    const chat = await appendBookChatMessage(accountId, bookId, message)
+    setMessagesMap(previous => ({ ...previous, [chat.id]: chat.messages }))
   }
 
   const handleSend = async () => {
     const q = input.trim()
-    if (!q || !selectedBook || loading) return
+    if (!q || !selectedBook || !userId || !chatReady || loading || unsavedReply) return
 
     const bookId = selectedBook.meta.id
+    const chatId = JSON.stringify([userId, bookId])
     const usePersonal = includeBeliefs && personalBeliefs.length > 0
-    setInput('')
-    setIncludeBeliefs(false)
-    appendMessage(bookId, { role: 'user', content: q, mode: usePersonal ? 'personal' : 'book' })
+    const mode = usePersonal ? 'personal' : 'book'
+    const history = messages.filter(message => message.status !== 'notice')
+    const userMessage: BookChatMessage = { id: crypto.randomUUID(), role: 'user', content: q, mode, createdAt: new Date() }
+    setChatErrors(previous => ({ ...previous, [chatId]: '' }))
     setLoading(true)
-
-    // 1. 本地检索
-    const results = searchBook(selectedBook, q, 5)
-
-    if (results.length === 0) {
-      appendMessage(bookId, {
-        role: 'assistant',
-        content: '当前收录的章节里没有检索到直接相关的段落。可以换个问法，或试试书中的关键词。',
-      })
+    try {
+      // 原话先落盘，再进行检索和 AI 请求；未保存成功时输入框保持不变。
+      await appendMessage(userId, bookId, userMessage)
+    } catch {
+      setChatErrors(previous => ({ ...previous, [chatId]: '问题没有保存成功，请检查浏览器存储后重试；输入仍在。' }))
       setLoading(false)
       return
     }
+    setInput('')
+    setIncludeBeliefs(false)
 
-    // 只有用户主动选择个人模式时，才向模型传入画布中的信念。
-    const answer = await askBook(
-      selectedBook.meta.title,
-      q,
-      results.map((r: SearchResult) => ({ chapter: r.chapter, snippet: r.snippet })),
-      usePersonal ? { personalBeliefs } : undefined,
-    )
-
-    if (answer) {
-      appendMessage(bookId, { role: 'assistant', content: answer, sources: [...new Set(results.map(r => r.chapter))] })
-    } else {
-      appendMessage(bookId, {
-        role: 'assistant',
-        content: '抱歉，暂时无法回答，请稍后再试。',
-      })
+    let reply: BookChatMessage
+    try {
+      const results = searchBookForConversation(selectedBook, q, history, 5, usePersonal)
+      const answer = results.length === 0
+        ? '当前收录的章节里没有检索到直接相关的段落。可以换个问法，或试试书中的关键词。'
+        : await askBook(
+          selectedBook.meta.title,
+          q,
+          results.map((r: SearchResult) => ({ chapter: r.chapter, snippet: r.snippet })),
+          { ...(usePersonal ? { personalBeliefs } : {}), history },
+        )
+      reply = {
+        id: crypto.randomUUID(), role: 'assistant', mode, createdAt: new Date(),
+        content: answer || '抱歉，暂时无法回答，请稍后再试。',
+        ...(answer && results.length > 0 ? { sources: [...new Set(results.map(result => result.chapter))] } : {}),
+        ...(!answer || results.length === 0 ? { status: 'notice' as const } : {}),
+      }
+    } catch {
+      reply = { id: crypto.randomUUID(), role: 'assistant', mode, createdAt: new Date(), status: 'notice', content: '抱歉，暂时无法回答，请稍后再试。' }
     }
-
+    try {
+      await appendMessage(userId, bookId, reply)
+    } catch {
+      setUnsavedReplies(previous => ({ ...previous, [chatId]: reply }))
+      setChatErrors(previous => ({ ...previous, [chatId]: '回答暂未保存。刷新页面前请点击“重试保存”。' }))
+    }
     setLoading(false)
+  }
+
+  const retrySaveReply = async () => {
+    if (!unsavedReply || !selectedBookId) return
+    try {
+      await appendMessage(userId, selectedBookId, unsavedReply)
+      setUnsavedReplies(previous => {
+        const next = { ...previous }
+        delete next[selectedChatId]
+        return next
+      })
+      setChatErrors(previous => ({ ...previous, [selectedChatId]: '' }))
+    } catch { setChatErrors(previous => ({ ...previous, [selectedChatId]: '回答仍未保存。刷新页面前请稍后重试。' })) }
   }
 
   const handleClose = () => {
     setSelectedBookId(null)
-    setMessagesMap({})
-    setInput('')
     setIncludeBeliefs(false)
     onClose()
   }
@@ -171,7 +223,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                 /* 书本列表 */
                 <div className="px-6 pb-6 space-y-3">
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    选择一本书，先理解书中的概念；需要时再选择是否结合自己的信念。
+                    选择一本书，先理解书中的概念；对话会保存在当前浏览器，之后可以接着追问。
                   </p>
                   {books.map(book => (
                     <button
@@ -215,13 +267,14 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
                   {/* 消息列表 */}
                   <div className="space-y-3">
-                    {messages.length === 0 && (
+                    {chatReady && visibleMessages.length === 0 && (
                       <p className="text-sm text-center py-8" style={{ color: '#C4B8B0' }}>
                         在下方输入你对本书的疑问
                       </p>
                     )}
-                    {messages.map((msg, i) => (
-                      <div key={i} className={msg.role === 'user' ? 'flex justify-end' : ''}>
+                    {!chatReady && !loadError && <p className="text-sm text-center py-8" style={{ color: '#C4B8B0' }}>正在读取对话…</p>}
+                    {visibleMessages.map(msg => (
+                      <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
                         <div
                           className="max-w-[85%] px-3.5 py-2.5 rounded-xl text-sm leading-relaxed"
                           style={msg.role === 'user' ? {
@@ -243,6 +296,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                             <>
                               <BookAnswer content={msg.content} />
                               {msg.sources && <p className="text-[11px] mt-2 opacity-60">检索段落：{msg.sources.join('、')}</p>}
+                              {unsavedReply?.id === msg.id && <p className="text-[11px] mt-2 opacity-60">尚未保存</p>}
                             </>
                           )}
                         </div>
@@ -264,10 +318,14 @@ export default function BookQAPanel({ open, onClose }: Props) {
             {/* 输入框（仅在聊天视图显示） */}
             {selectedBook && (
               <div className="flex-shrink-0 px-6 pb-5 pt-2">
+                {(visibleError || unsavedReply) && <div className="flex items-center gap-2 mb-2">
+                  <p role="alert" className="text-xs flex-1" style={{ color: '#9A573E' }}>{visibleError || '回答尚未保存，请重试。'}</p>
+                  {unsavedReply && <button type="button" className="text-xs px-2 py-1 rounded-full" style={{ color: '#5C4A3A', backgroundColor: 'rgba(200, 169, 110, 0.12)' }} onClick={() => void retrySaveReply()}>重试保存</button>}
+                </div>}
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <span className="text-xs" style={{ color: '#9C9088' }}>默认只解释书中概念</span>
                   <button type="button" role="switch" aria-checked={includeBeliefs}
-                    aria-label="本次结合我的信念" disabled={loading || personalBeliefs.length === 0}
+                    aria-label="本次结合我的信念" disabled={!chatReady || loading || !!unsavedReply || personalBeliefs.length === 0}
                     onClick={() => setIncludeBeliefs(value => !value)}
                     className="text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-40"
                     style={{ color: includeBeliefs ? '#5A7A68' : '#7A7670', backgroundColor: includeBeliefs ? 'rgba(160, 200, 176, 0.15)' : 'rgba(200, 169, 110, 0.08)' }}>
@@ -277,6 +335,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                 {personalBeliefs.length === 0 && <p className="text-xs mb-2" style={{ color: '#9C9088' }}>画布中还没有可参考的信念记录</p>}
                 <div className="flex items-center gap-2">
                   <input
+                    disabled={!chatReady || loading || !!unsavedReply}
                     className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none transition-all"
                     style={{
                       backgroundColor: 'rgba(74, 64, 54, 0.04)',
@@ -288,7 +347,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void handleSend() }}
                   />
-                  <button type="button" disabled={loading || !input.trim()}
+                  <button type="button" disabled={!chatReady || loading || !!unsavedReply || !input.trim()}
                     className="flex-shrink-0 text-sm px-3 py-2 rounded-full disabled:opacity-40"
                     style={{ backgroundColor: 'rgba(200, 169, 110, 0.12)', color: '#5C4A3A' }}
                     onClick={() => void handleSend()}

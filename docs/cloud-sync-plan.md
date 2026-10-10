@@ -5,6 +5,7 @@
 ## 已明确的数据边界
 
 - `conversationSessions` 是探索记录的主数据：原话、问题、未提交草稿、历次整理、用户改写分别保留。
+- `bookChats` 按账号和书籍保存问答记录；未来同步时同样需要按消息 ID 去重，且保留每轮是否结合个人信念的模式。
 - `beliefNodes.sourceSessionId/sourceSummaryId/sourceCandidateId` 指向用户主动保留内容的来源。入图不自动代表因果关系或生成连线。
 - `dailyTasks` 只记录行动完成状态，整理思考不改变任务完成状态。
 - `src/db/explorations.ts` 集中处理探索保存与入图事务，后续可接入同步写入队列；其他旧功能仍直接访问 Dexie，需要逐项迁移。

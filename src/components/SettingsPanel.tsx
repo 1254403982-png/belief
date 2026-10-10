@@ -404,7 +404,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                   数据导出
                 </label>
                 <p className="text-xs leading-relaxed" style={{ color: '#7A7670' }}>
-                  当前账号与记录保存在此浏览器，尚未跨设备同步。JSON 备份包含画布、日记、待办和探索记录，请妥善保存。
+                  当前账号与记录保存在此浏览器，尚未跨设备同步。JSON 备份包含画布、日记、待办、探索和书籍问答记录，请妥善保存。
                 </p>
                 <div className="flex gap-2">
                   <button

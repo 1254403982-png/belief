@@ -36,6 +36,7 @@ interface BeliefEdge {
 - **thoughtJournals**: id(PK), userId, createdAt
 - **dailyTasks**: id(PK), userId, date, status；仅记录行动，由用户明确标记完成
 - **conversationSessions**: id(PK), userId, createdAt；保存探索原话、问题、草稿、整理版本和用户改写
+- **bookChats**: id(PK), userId, bookId, updatedAt；按账号与书保存问答消息、提问模式和检索章节
 
 ## Canvas 渲染架构
 
@@ -57,5 +58,5 @@ interface BeliefEdge {
 ## 本地保存与跨设备
 
 - 当前账号和业务数据都在 IndexedDB；localStorage 仅保存当前账号 ID 与探索草稿的即时恢复快照
-- JSON 备份包含节点、连线、日记、待办和探索记录
+- JSON 备份包含节点、连线、日记、待办、探索和书籍问答记录
 - 当前版本没有多设备同步。云端身份、迁移、离线队列与冲突处理方案见 `docs/cloud-sync-plan.md`

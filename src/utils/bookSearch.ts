@@ -72,6 +72,28 @@ export function searchBook(book: BookData, query: string, topN = 5): SearchResul
     .slice(0, topN)
 }
 
+/** 追问中的「它」「这个」借最近的书籍问题补足检索词，不引入个人模式的内容。 */
+export function searchBookForConversation(
+  book: BookData,
+  question: string,
+  history: { role: 'user' | 'assistant'; content: string; mode?: 'book' | 'personal' }[],
+  topN = 5,
+  includePersonal = false,
+): SearchResult[] {
+  const isFollowUp = (text: string) => text.length <= 48 && /它|这个|这种|上述|前面|刚才|进一步|再具体|继续|能再|能否再/.test(text)
+  const previousQuestions: typeof history = []
+  for (let index = 0; index < history.length - 1; index++) {
+    const question = history[index]
+    const answer = history[index + 1]
+    if (question.role !== 'user' || answer.role !== 'assistant' || (question.mode ?? 'book') !== (answer.mode ?? 'book')) continue
+    if (includePersonal || question.mode !== 'personal') previousQuestions.push(question)
+    index++
+  }
+  const anchor = [...previousQuestions].reverse().find(message => !isFollowUp(message.content)) ?? previousQuestions[previousQuestions.length - 1]
+  const query = anchor && isFollowUp(question) ? `${anchor.content} ${question}` : question
+  return searchBook(book, query, topN)
+}
+
 /** 估算字符数 */
 export function estimateChars(text: string): number {
   return text.replace(/\s/g, '').length

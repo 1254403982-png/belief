@@ -106,6 +106,25 @@ export interface ConversationSession {
   sourceJournalId?: string             // 从旧「深度思考」笔记继续探索
 }
 
+export interface BookChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  mode: 'book' | 'personal'
+  sources?: string[]
+  status?: 'notice'
+  createdAt: Date
+}
+
+export interface BookChat {
+  id: string
+  userId: string
+  bookId: string
+  messages: BookChatMessage[]
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface UserAccount {
   id: string
   username: string
@@ -132,6 +151,7 @@ class BeliefDB extends Dexie {
   thoughtJournals!: Table<ThoughtJournal, string>
   dailyTasks!: Table<DailyTask, string>
   conversationSessions!: Table<ConversationSession, string>
+  bookChats!: Table<BookChat, string>
 
   constructor() {
     super('BeliefDB')
@@ -155,6 +175,15 @@ class BeliefDB extends Dexie {
       thoughtJournals: 'id, userId, createdAt',
       dailyTasks: 'id, userId, date, status',
       conversationSessions: 'id, userId, createdAt',
+    })
+    this.version(7).stores({
+      userAccounts: 'id, username',
+      beliefNodes: 'id, userId, type, category, status, attitude, isLongTerm, markedForReview, deletedAt',
+      beliefEdges: 'id, userId, sourceId, targetId, type',
+      thoughtJournals: 'id, userId, createdAt',
+      dailyTasks: 'id, userId, date, status',
+      conversationSessions: 'id, userId, createdAt',
+      bookChats: 'id, userId, bookId, updatedAt',
     })
   }
 
