@@ -199,7 +199,7 @@ function CanvasGuide() {
       />
       <GuideItem
         action="拖拽节点"
-        result="只移动当前节点；位置接近不会自动建立关系"
+        result="相连节点按距离逐级弹性跟随，松手后缓慢停稳；位置接近不会自动建立关系"
       />
       <GuideItem
         action="右键点击节点"
@@ -418,7 +418,7 @@ function ShortcutsGuide() {
     { key: '双击节点', desc: '编辑节点文字' },
     { key: '长按节点', desc: '进入聚焦模式（0.6 秒）' },
     { key: '拖拽空白', desc: '平移画布视野' },
-    { key: '拖拽节点', desc: '移动当前节点' },
+    { key: '拖拽节点', desc: '相连节点逐级弹性跟随' },
   ]
 
   return (

@@ -83,7 +83,10 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
               节点详情
             </h3>
             <button
-              className="text-sm hover:opacity-70 transition-opacity"
+              type="button"
+              aria-label="关闭节点详情"
+              title="关闭节点详情"
+              className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-base hover:bg-[#F3E9DB] transition-colors"
               style={{ color: '#9C9088' }}
               onClick={() => store.selectNode(null)}
             >
