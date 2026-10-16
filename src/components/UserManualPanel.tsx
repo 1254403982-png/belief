@@ -199,7 +199,7 @@ function CanvasGuide() {
       />
       <GuideItem
         action="拖拽节点"
-        result="相连节点按距离逐级弹性跟随，松手后缓慢停稳；位置接近不会自动建立关系"
+        result="拖动时相连节点按距离逐级跟随，松手后停在当前位置；位置接近不会自动建立关系"
       />
       <GuideItem
         action="右键点击节点"

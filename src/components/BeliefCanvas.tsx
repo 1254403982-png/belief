@@ -25,26 +25,12 @@ import {
   hexToRgba,
   TYPE_HIERARCHY,
   getConnectedComponent,
+  getConnectedWithDistance,
   findDuplicateNode,
 } from './utils'
 import { isSamePair, isDirectionalLink } from '../utils/beliefLinks'
-import { getElasticFollowers, stepElasticAxis } from '../utils/elasticDrag'
 
 const BookQAPanel = lazy(() => import('./BookQAPanel'))
-
-interface ElasticFollowerState {
-  origin: { x: number; y: number }
-  z: number
-  weight: number
-  velocity: { x: number; y: number }
-}
-
-interface ElasticDragState {
-  anchorId: string
-  anchorStart: { x: number; y: number }
-  active: boolean
-  followers: Map<string, ElasticFollowerState>
-}
 
 // ====== 坐标转换 ======
 
@@ -244,6 +230,7 @@ export default function BeliefCanvas() {
   const forceVelocitiesRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   const [forceEnabled, setForceEnabled] = useState(false)
   const forceEnabledRef = useRef(false)
+  const draggingNodeRef = useRef(false)
   useEffect(() => { forceEnabledRef.current = forceEnabled }, [forceEnabled])
   const forceFrameCountRef = useRef(0)
 
@@ -260,8 +247,8 @@ export default function BeliefCanvas() {
   const lastPanTimeRef = useRef(0)
   const lastPanPosRef = useRef({ x: 0, y: 0 })
 
-  // 拖动联动独立于自动梳理布局，每次拖动都重新计算相连节点。
-  const elasticDragRef = useRef<ElasticDragState | null>(null)
+  // 恢复原版链式拖拽：每次按下重新记录整条链的起点。
+  const chainOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   // 拖拽偏移：点击位置相对于节点中心的世界坐标偏移
   const dragOffsetRef = useRef({ x: 0, y: 0 })
 
@@ -416,35 +403,6 @@ export default function BeliefCanvas() {
   }
 
   const getUserId = () => localStorage.getItem('currentUserId') || ''
-
-  const persistElasticCurrent = () => {
-    const drag = elasticDragRef.current
-    if (!drag) return
-    const nodes = useBeliefStore.getState().nodes
-    for (const id of [drag.anchorId, ...drag.followers.keys()]) {
-      const node = nodes.find(item => item.id === id)
-      if (node) void db.beliefNodes.update(id, { position: node.position })
-    }
-  }
-
-  const releaseElasticDrag = () => {
-    const drag = elasticDragRef.current
-    if (!drag) return
-    drag.active = false
-    const anchor = useBeliefStore.getState().nodes.find(node => node.id === drag.anchorId)
-    if (!anchor) return
-    const dx = anchor.position.x - drag.anchorStart.x
-    const dy = anchor.position.y - drag.anchorStart.y
-    void db.beliefNodes.update(anchor.id, { position: anchor.position })
-    // 先保存最终目标；松手后的画面继续向目标缓慢收敛。
-    for (const [id, follower] of drag.followers) {
-      void db.beliefNodes.update(id, { position: {
-        x: follower.origin.x + dx * follower.weight,
-        y: follower.origin.y + dy * follower.weight,
-        z: follower.z,
-      } })
-    }
-  }
 
   // ====== 今日待办 ======
   const saveDailyTask = async (content: string) => {
@@ -650,38 +608,8 @@ export default function BeliefCanvas() {
       const hasParticles = releaseParticlesRef.current.length > 0
       const hasFadingNodes = releaseTimersRef.current.size > 0
       const hasInertia = inertiaAnimRef.current !== null
-      const elasticDrag = elasticDragRef.current
-      if (hasParticles || hasFadingNodes || hasInertia || forceEnabledRef.current || elasticDrag) {
+      if (hasParticles || hasFadingNodes || hasInertia || forceEnabledRef.current || draggingNodeRef.current) {
         lastActivityRef.current = now
-      }
-      if (elasticDrag) {
-        const anchor = nodes.find(node => node.id === elasticDrag.anchorId)
-        if (!anchor) {
-          elasticDragRef.current = null
-        } else {
-          const deltaX = anchor.position.x - elasticDrag.anchorStart.x
-          const deltaY = anchor.position.y - elasticDrag.anchorStart.y
-          const nextPositions = new Map<string, BeliefNode['position']>()
-          let moving = false
-          for (const [id, follower] of elasticDrag.followers) {
-            const current = nodes.find(node => node.id === id)
-            if (!current || current.deletedAt) continue
-            const x = stepElasticAxis(current.position.x, follower.velocity.x, follower.origin.x + deltaX * follower.weight)
-            const y = stepElasticAxis(current.position.y, follower.velocity.y, follower.origin.y + deltaY * follower.weight)
-            follower.velocity = { x: x.velocity, y: y.velocity }
-            if (!x.settled || !y.settled) moving = true
-            if (x.position !== current.position.x || y.position !== current.position.y) {
-              nextPositions.set(id, { x: x.position, y: y.position, z: follower.z })
-            }
-          }
-          if (nextPositions.size) {
-            store.setNodes(nodes.map(node => {
-              const position = nextPositions.get(node.id)
-              return position ? { ...node, position } : node
-            }))
-          }
-          if (!elasticDrag.active && !moving) elasticDragRef.current = null
-        }
       }
       const { offsetX, offsetY, scale } = viewState
       const focusId = focusNodeId
@@ -994,7 +922,7 @@ export default function BeliefCanvas() {
       }
 
       // 力导向布局（每 2 帧计算一次，不影响渲染帧率）
-      if (forceEnabledRef.current && !focusId && !elasticDragRef.current) {
+      if (forceEnabledRef.current && !focusId && !draggingNodeRef.current) {
         forceFrameCountRef.current++
         if (forceFrameCountRef.current % 2 === 0 && nodes.length > 1) {
           const velocities = forceVelocitiesRef.current
@@ -1158,27 +1086,16 @@ export default function BeliefCanvas() {
         setSelectedEdgeId(null)
         setEdgePopup(null)
         state.selectNode(hit.id)
+        draggingNodeRef.current = true
         setIsDraggingNode(true)
         setDragNodeId(hit.id)
-        persistElasticCurrent()
-        const activeIds = new Set(state.nodes.filter(node => !node.deletedAt).map(node => node.id))
-        const followers = new Map<string, ElasticFollowerState>()
-        for (const follower of getElasticFollowers(hit.id, state.edges, activeIds)) {
-          const node = state.nodes.find(item => item.id === follower.id)
-          if (!node) continue
-          followers.set(node.id, {
-            origin: { x: node.position.x, y: node.position.y },
-            z: node.position.z,
-            weight: follower.weight,
-            velocity: { x: 0, y: 0 },
-          })
+        const chainDists = getConnectedWithDistance(hit.id, state.edges)
+        const originMap = new Map<string, { x: number; y: number }>()
+        for (const [id] of chainDists) {
+          const node = state.nodes.find(item => item.id === id && !item.deletedAt)
+          if (node) originMap.set(id, { x: node.position.x, y: node.position.y })
         }
-        elasticDragRef.current = {
-          anchorId: hit.id,
-          anchorStart: { x: hit.position.x, y: hit.position.y },
-          active: true,
-          followers,
-        }
+        chainOriginRef.current = originMap
         // 记录点击偏移（光标世界坐标 - 节点中心），拖拽时保持相对位置
         dragOffsetRef.current = { x: world.x - hit.position.x, y: world.y - hit.position.y }
         longPressPosRef.current = { x: e.clientX, y: e.clientY }
@@ -1188,7 +1105,8 @@ export default function BeliefCanvas() {
         longPressTimerRef.current = setTimeout(() => {
           // 长按触发聚焦模式
           state.setFocusNode(hit.id)
-          releaseElasticDrag()
+          draggingNodeRef.current = false
+          chainOriginRef.current = new Map()
           setIsDraggingNode(false)
           setDragNodeId(null)
           longPressTimerRef.current = null
@@ -1277,6 +1195,7 @@ export default function BeliefCanvas() {
     }
 
     if (isDraggingNode && dragNodeId) {
+      draggingNodeRef.current = false
       const state = useBeliefStore.getState()
       const { offsetX, offsetY, scale } = state.viewState
       const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, offsetX, offsetY, scale)
@@ -1296,6 +1215,25 @@ export default function BeliefCanvas() {
       const newY = oldY + (targetY - oldY) * stiffness
       store.updateNode(dragNodeId, { position: { x: newX, y: newY, z: draggedNode.position.z } })
 
+      // 原版手感：相连节点跟随实际移动量，按最短链路距离逐级衰减。
+      const originMap = chainOriginRef.current
+      const dragOrigin = originMap.get(dragNodeId)
+      if (dragOrigin && originMap.size > 1) {
+        const dx = newX - dragOrigin.x
+        const dy = newY - dragOrigin.y
+        const distances = getConnectedWithDistance(dragNodeId, state.edges)
+        for (const [id, distance] of distances) {
+          if (id === dragNodeId) continue
+          const origin = originMap.get(id)
+          if (!origin) continue
+          const weight = distance <= 1 ? 0.65 : distance <= 2 ? 0.35 : distance <= 3 ? 0.18 : 0.08
+          const follower = state.nodes.find(node => node.id === id)
+          if (!follower) continue
+          store.updateNode(id, {
+            position: { x: origin.x + dx * weight, y: origin.y + dy * weight, z: follower.position.z },
+          })
+        }
+      }
     }
   }, [isPanning, panStart, isDraggingNode, dragNodeId])
 
@@ -1343,7 +1281,12 @@ export default function BeliefCanvas() {
     }
 
     if (isDraggingNode && dragNodeId) {
-      releaseElasticDrag()
+      const state = useBeliefStore.getState()
+      for (const id of chainOriginRef.current.keys()) {
+        const node = state.nodes.find(item => item.id === id)
+        if (node) void db.beliefNodes.update(id, { position: node.position })
+      }
+      chainOriginRef.current = new Map()
       setIsDraggingNode(false)
       setDragNodeId(null)
     }
@@ -1492,31 +1435,31 @@ export default function BeliefCanvas() {
       )}
 
       {/* 顶部栏 */}
-      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-6 py-4 pointer-events-none z-10`}>
+      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-6 py-3 z-30`}>
         <span
-          className="font-serif text-lg tracking-wider pointer-events-auto cursor-pointer select-none"
+          className="font-serif text-lg tracking-wider cursor-pointer select-none"
           style={{ color: '#5C4A3A' }}
           onClick={() => store.setViewState({ offsetX: 0, offsetY: 0, scale: 1 })}
         >
           信念
         </span>
-        <div className="flex gap-2 pointer-events-auto items-center" style={{ color: '#9C9088' }}>
+        <div className="flex gap-2 items-center" style={{ color: '#9C9088' }}>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="信念总览"
             onClick={() => setDrawerOpen(true)}
           >
             <ToolbarIcon name="overview" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="书本问答"
             onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
             <ToolbarIcon name="books" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="我的探索：记录、问询与继续思考"
             aria-label="我的探索"
             onClick={() => {
@@ -1528,7 +1471,7 @@ export default function BeliefCanvas() {
             <ToolbarIcon name="explore" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="自动梳理布局"
             onClick={() => setForceEnabled(!forceEnabled)}
             style={{ opacity: forceEnabled ? 1 : 0.5 }}
@@ -1536,14 +1479,14 @@ export default function BeliefCanvas() {
             <ToolbarIcon name="arrange" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="设置"
             onClick={() => setSettingsOpen(true)}
           >
             <ToolbarIcon name="settings" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
+            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="使用手册"
             onClick={() => setManualOpen(true)}
           >
@@ -1555,7 +1498,7 @@ export default function BeliefCanvas() {
       {/* 选中节点信息条 */}
       {selectedNode && !editingNodeId && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 px-5 py-2.5 rounded-full flex items-center gap-3"
+          className="absolute left-1/2 -translate-x-1/2 md:left-0 md:right-80 md:translate-x-0 md:mx-auto z-30 w-max max-w-[calc(100%-2rem)] md:max-w-[calc(100%-22rem)] px-5 py-2.5 rounded-full flex items-center gap-3"
           style={{
             top: 76,
             backgroundColor: 'rgba(255, 251, 245, 0.9)',
@@ -1564,14 +1507,14 @@ export default function BeliefCanvas() {
             boxShadow: '0 2px 12px rgba(74, 64, 54, 0.06)',
           }}
         >
-          <span className="text-sm max-w-[300px]" style={{ color: '#4A4036', wordBreak: 'break-word' }}>
+          <span className="text-sm max-w-[300px] min-w-0" style={{ color: '#4A4036', wordBreak: 'break-word' }}>
             {selectedNode.content}
           </span>
           <span className="text-xs" style={{ color: '#9C9088' }}>
             {getTypeLabel(selectedNode.type)}
           </span>
           <button
-            className="text-xs hover:opacity-70"
+            className="text-xs hover:opacity-70 flex-shrink-0 w-8 h-8 flex items-center justify-center"
             style={{ color: '#9C9088' }}
             title="编辑"
             onClick={() => {
@@ -1582,7 +1525,7 @@ export default function BeliefCanvas() {
             ✏️
           </button>
           <button
-            className="text-xs hover:opacity-70"
+            className="text-xs hover:opacity-70 flex-shrink-0 w-8 h-8 flex items-center justify-center"
             style={{ color: connectMode === selectedNode.id ? '#D4A843' : '#9C9088' }}
             title="连接到另一个节点"
             onClick={() => {
