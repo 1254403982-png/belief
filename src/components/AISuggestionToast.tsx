@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { ClassifyResult } from '../utils/deepseek'
 import { getNodeColor, getTypeLabel, getCategoryLabel, getCategoryEmoji } from './utils'
+import NianNian from './NianNian'
 
 interface Props {
   visible: boolean
@@ -61,6 +62,7 @@ export default function AISuggestionToast({
                 boxShadow: '0 4px 28px rgba(74, 64, 54, 0.08)',
               }}
             >
+              <div className="flex items-center gap-2 text-sm text-[#5C4A3A]"><NianNian size={28} /><span>念念的想法 · 由你决定是否采纳</span></div>
               {/* 重复提示 */}
               {duplicate && !loading && (
                 <div className="space-y-3">
@@ -107,7 +109,7 @@ export default function AISuggestionToast({
                     }}
                   />
                   <p className="text-xs" style={{ color: '#C4B8B0' }}>
-                    AI 正在理解...
+                    念念正在理解...
                   </p>
                 </div>
               )}

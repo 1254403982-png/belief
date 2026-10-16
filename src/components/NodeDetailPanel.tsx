@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, CATEGORIES, type Category } from '../db'
-import { getCategoryLabel, getCategoryEmoji, CATEGORY_CONFIG, getTypeLabel, formatDate, hexToRgba, getConnectedComponent } from './utils'
+import { getCategoryLabel, getCategoryEmoji, CATEGORY_CONFIG, getTypeLabel, formatDate, hexToRgba } from './utils'
+import { linkTypeLabel, isDirectionalLink } from '../utils/beliefLinks'
+import NianNian from './NianNian'
+import ConnectionQuestion from './ConnectionQuestion'
 
 const TYPE_OPTIONS: { value: BeliefNode['type']; label: string }[] = [
   { value: 'core_belief', label: '核心信念' },
@@ -21,7 +24,7 @@ const ATTITUDE_OPTIONS: { value: NonNullable<BeliefNode['attitude']>; label: str
   { value: 'observe', label: '观察', desc: '保持觉察，不急着判断' },
 ]
 
-export default function NodeDetailPanel({ onOpenExploration }: { onOpenExploration?: (sessionId: string) => void }) {
+export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian }: { onOpenExploration?: (sessionId: string) => void; onThinkWithNianNian?: (nodeId: string) => void }) {
   const store = useBeliefStore()
   const selectedNode = store.nodes.find(n => n.id === store.selectedNodeId)
   const [editingNote, setEditingNote] = useState(false)
@@ -259,11 +262,8 @@ export default function NodeDetailPanel({ onOpenExploration }: { onOpenExplorati
                     }}
                     onClick={() => {
                       const newCat: Category | undefined = selectedNode.category === cat ? undefined : cat
-                      const chainIds = getConnectedComponent(selectedNode.id, store.edges)
-                      for (const nid of chainIds) {
-                        store.updateNode(nid, { category: newCat })
-                        db.beliefNodes.update(nid, { category: newCat })
-                      }
+                      store.updateNode(selectedNode.id, { category: newCat })
+                      db.beliefNodes.update(selectedNode.id, { category: newCat })
                     }}
                   >
                     {getCategoryEmoji(cat)} {getCategoryLabel(cat)}
@@ -273,11 +273,8 @@ export default function NodeDetailPanel({ onOpenExploration }: { onOpenExplorati
                 <CustomCategoryInput
                   currentNode={selectedNode}
                   onSetCategory={(cat: string | undefined) => {
-                    const chainIds = getConnectedComponent(selectedNode.id, store.edges)
-                    for (const nid of chainIds) {
-                      store.updateNode(nid, { category: cat })
-                      db.beliefNodes.update(nid, { category: cat })
-                    }
+                    store.updateNode(selectedNode.id, { category: cat })
+                    db.beliefNodes.update(selectedNode.id, { category: cat })
                   }}
                 />
               </div>
@@ -285,6 +282,13 @@ export default function NodeDetailPanel({ onOpenExploration }: { onOpenExplorati
 
             {/* 已连接节点 */}
             <ConnectedNodes nodeId={selectedNode.id} />
+
+            <section className="rounded-xl border border-[#E9DCC9] bg-[#FFFBF5] p-3 space-y-3">
+              <div className="flex items-center gap-2"><NianNian size={32} /><span className="text-sm text-[#5C4A3A]">念念陪你看看这句话</span></div>
+              <p className="text-xs leading-5 text-[#7A7670]">先保留你的原话和判断。可以继续记录思考，也可以只请念念问一个问题。</p>
+              {onThinkWithNianNian && <button type="button" className="text-xs rounded-full bg-[#EEDFC6] text-[#5C4A3A] px-3 py-1.5" onClick={() => onThinkWithNianNian(selectedNode.id)}>和念念继续思考</button>}
+              <ConnectionQuestion key={selectedNode.id} nodes={[selectedNode, ...store.nodes.filter(node => store.edges.some(edge => (edge.sourceId === selectedNode.id && edge.targetId === node.id) || (edge.targetId === selectedNode.id && edge.sourceId === node.id))).slice(0, 7)]} edges={store.edges.filter(edge => edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id).slice(0, 12)} compact />
+            </section>
 
             {/* 笔记 */}
             <section>
@@ -446,29 +450,6 @@ export default function NodeDetailPanel({ onOpenExploration }: { onOpenExplorati
               >
                 删除此节点
               </button>
-              <button
-                className="w-full text-center text-sm px-4 py-2 rounded-lg transition-all hover:opacity-70"
-                style={{
-                  color: '#E08860',
-                  border: '1px dashed rgba(224, 136, 96, 0.35)',
-                }}
-                onClick={() => {
-                  const chainIds = getConnectedComponent(selectedNode.id, store.edges)
-                  const count = chainIds.size
-                  const confirmed = window.confirm(
-                    `确定要删除包含「${selectedNode.content}」在内的整条链条吗？\n共 ${count} 个节点将进入垃圾箱，7天内可恢复。`
-                  )
-                  if (!confirmed) return
-                  store.selectNode(null)
-                  const now = new Date()
-                  for (const nid of chainIds) {
-                    store.updateNode(nid, { deletedAt: now })
-                    db.beliefNodes.update(nid, { deletedAt: now })
-                  }
-                }}
-              >
-                删除整条链条（{getConnectedComponent(selectedNode.id, store.edges).size} 个节点）
-              </button>
             </section>
           </div>
         </motion.div>
@@ -624,7 +605,7 @@ function ConnectedNodes({ nodeId }: { nodeId: string }) {
                   {other.content}
                 </span>
                 <span className="text-xs" style={{ color: '#C4B8B0' }}>
-                  {getTypeLabel(other.type)}
+                  {getTypeLabel(other.type)} · {isDirectionalLink(edge.type) ? (edge.sourceId === nodeId ? '我 → 对方 · ' : '对方 → 我 · ') : ''}{linkTypeLabel(edge.type)}
                 </span>
               </div>
               <button

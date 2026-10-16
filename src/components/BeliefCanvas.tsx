@@ -9,6 +9,9 @@ import ExplorationPanel from './ExplorationPanel'
 import SettingsPanel from './SettingsPanel'
 import ReviewPanel from './ReviewPanel'
 import EdgeInfoPopup from './EdgeInfoPopup'
+import CreateLinkDialog from './CreateLinkDialog'
+import ToolbarIcon from './ToolbarIcon'
+import NianNian from './NianNian'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
 import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
@@ -19,16 +22,12 @@ import {
   getNodeRadius,
   getTypeLabel,
   getEdgeColor,
-  canConnect,
   hexToRgba,
   TYPE_HIERARCHY,
   getConnectedComponent,
-  getConnectedWithDistance,
-  normalizeEdgeDirection,
   findDuplicateNode,
-  hasPath,
-  findRedundantEdgeIds,
 } from './utils'
+import { isSamePair, isDirectionalLink } from '../utils/beliefLinks'
 
 const BookQAPanel = lazy(() => import('./BookQAPanel'))
 
@@ -141,18 +140,6 @@ function ContextMenu({
       },
       danger: true,
     },
-    {
-      label: '删除整条链条',
-      action: () => {
-        const chainIds = getConnectedComponent(node.id, store.edges)
-        const now = new Date()
-        for (const nid of chainIds) {
-          store.updateNode(nid, { deletedAt: now })
-          db.beliefNodes.update(nid, { deletedAt: now })
-        }
-      },
-      danger: true,
-    },
   ]
 
   useEffect(() => {
@@ -203,7 +190,7 @@ export default function BeliefCanvas() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   const [isDraggingNode, setIsDraggingNode] = useState(false)
   const [dragNodeId, setDragNodeId] = useState<string | null>(null)
-  const [dragNodeStart, setDragNodeStart] = useState({ x: 0, y: 0 })
+  const [pendingLink, setPendingLink] = useState<{ sourceId: string; targetId: string } | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: BeliefNode } | null>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
@@ -257,10 +244,8 @@ export default function BeliefCanvas() {
   const velocityRef = useRef({ x: 0, y: 0 })
   const lastPanTimeRef = useRef(0)
   const lastPanPosRef = useRef({ x: 0, y: 0 })
-  const DRAG_CONNECT_DISTANCE = 50 // 拖拽节点到另一节点附近的连线距离阈值（世界坐标）
 
   // 链式拖拽：记录拖动开始时链上各节点的原始位置
-  const chainOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   // 拖拽偏移：点击位置相对于节点中心的世界坐标偏移
   const dragOffsetRef = useRef({ x: 0, y: 0 })
 
@@ -441,47 +426,31 @@ export default function BeliefCanvas() {
     setDailyTaskCount(c => c + 1)
   }
 
-  // ====== 连线创建（含传递性归约） ======
+  // ====== 连线创建：只去除同一对节点的重复关系，不推断传递性 ======
   const tryCreateEdge = (sourceId: string, targetId: string, edgeType: BeliefEdge['type'] = 'manual') => {
     const state = useBeliefStore.getState()
     const existingEdges = state.edges
 
     // 检查是否已存在相同连线
-    const alreadyExists = existingEdges.some(
-      e => (e.sourceId === sourceId && e.targetId === targetId) ||
-           (e.sourceId === targetId && e.targetId === sourceId)
-    )
+    const alreadyExists = existingEdges.some(e => isSamePair(e, sourceId, targetId))
     if (alreadyExists) return false
-
-    // 检查是否已有路径连通（传递性冗余）
-    if (hasPath(sourceId, targetId, existingEdges)) return false
 
     const userId = getUserId()
     const sourceNode = state.nodes.find(n => n.id === sourceId)
     const targetNode = state.nodes.find(n => n.id === targetId)
     if (!sourceNode || !targetNode) return false
 
-    const dir = normalizeEdgeDirection(sourceId, targetId, sourceNode.type, targetNode.type)
     const edge: BeliefEdge = {
       id: crypto.randomUUID(),
       userId,
-      sourceId: dir.sourceId,
-      targetId: dir.targetId,
+      sourceId,
+      targetId,
       type: edgeType,
       strength: 0.5,
       createdAt: new Date(),
     }
     store.addEdge(edge)
     db.beliefEdges.add(edge)
-
-    // 传递性归约：新连线可能使已有连线变得冗余
-    const allEdges = [...existingEdges, edge]
-    const redundantIds = findRedundantEdgeIds([dir.sourceId, dir.targetId], allEdges)
-    for (const rid of redundantIds) {
-      if (rid === edge.id) continue
-      store.removeEdge(rid)
-      db.beliefEdges.delete(rid)
-    }
 
     return true
   }
@@ -570,13 +539,7 @@ export default function BeliefCanvas() {
     store.addNode(node)
     db.beliefNodes.add(node)
 
-    // 自动连线
-    for (const relatedId of result.relatedNodeIds) {
-      const relatedNode = store.nodes.find(n => n.id === relatedId)
-      if (relatedNode) {
-        tryCreateEdge(relatedId, node.id, 'suggested_by_ai')
-      }
-    }
+    // AI 的相关性提示不等于用户确认的关系，故不自动连线。
     setAiToast({ visible: false, loading: false, error: false, originalText: '', result: null })
   }
 
@@ -713,9 +676,12 @@ export default function BeliefCanvas() {
         ctx.lineTo(target.position.x, target.position.y)
         ctx.strokeStyle = color
         ctx.lineWidth = width / scale
+        if (!isDirectionalLink(edge.type)) ctx.setLineDash([5 / scale, 5 / scale])
         ctx.stroke()
+        ctx.setLineDash([])
 
-        // 微小箭头指示方向（源→目标：深层→浅层）
+        // 只有用户确认的方向关系才显示箭头。
+        if (isDirectionalLink(edge.type)) {
         const ax = target.position.x
         const ay = target.position.y
         const dx = ax - source.position.x
@@ -741,6 +707,7 @@ export default function BeliefCanvas() {
           ctx.closePath()
           ctx.fillStyle = color
           ctx.fill()
+        }
         }
 
         // 选中连线高亮
@@ -1106,15 +1073,17 @@ export default function BeliefCanvas() {
 
     if (e.button === 0 || e.pointerType === 'touch') {
       if (hit) {
-        // 连接模式：点击第二个节点创建连线
+        // 连接模式：先让用户确认关系，再创建连线
         if (connectMode && hit.id !== connectMode) {
-          const sourceNode = state.nodes.find(n => n.id === connectMode)
-          if (sourceNode && canConnect(sourceNode.type, hit.type)) {
-            tryCreateEdge(connectMode, hit.id)
-            setConnectMode(null)
-            state.selectNode(hit.id)
-            return
+          const existing = state.edges.find(edge => isSamePair(edge, connectMode, hit.id))
+          if (existing) {
+            setSelectedEdgeId(existing.id)
+            setEdgePopup({ edgeId: existing.id, screenX: e.clientX, screenY: e.clientY })
           }
+          else setPendingLink({ sourceId: connectMode, targetId: hit.id })
+          setConnectMode(null)
+          state.selectNode(hit.id)
+          return
         }
 
         // 点击节点：取消连接模式 + 清除连线选中 + 选中 + 准备拖拽 + 启动长按计时
@@ -1124,17 +1093,8 @@ export default function BeliefCanvas() {
         state.selectNode(hit.id)
         setIsDraggingNode(true)
         setDragNodeId(hit.id)
-        setDragNodeStart({ x: hit.position.x, y: hit.position.y })
         // 记录点击偏移（光标世界坐标 - 节点中心），拖拽时保持相对位置
         dragOffsetRef.current = { x: world.x - hit.position.x, y: world.y - hit.position.y }
-        // 记录整条链路节点的原始位置（用于链式拖拽）
-        const chainDists = getConnectedWithDistance(hit.id, state.edges)
-        const originMap = new Map<string, { x: number; y: number }>()
-        for (const [nid] of chainDists) {
-          const n = state.nodes.find(nn => nn.id === nid)
-          if (n) originMap.set(nid, { x: n.position.x, y: n.position.y })
-        }
-        chainOriginRef.current = originMap
         longPressPosRef.current = { x: e.clientX, y: e.clientY }
 
         // 清除旧计时器
@@ -1249,28 +1209,6 @@ export default function BeliefCanvas() {
       const newY = oldY + (targetY - oldY) * stiffness
       store.updateNode(dragNodeId, { position: { x: newX, y: newY, z: draggedNode.position.z } })
 
-      // 链式跟随：同一链条上的节点按图距离权重跟移
-      const originMap = chainOriginRef.current
-      if (originMap.size > 1) {
-        const dragOrigin = originMap.get(dragNodeId)
-        if (dragOrigin) {
-          // 使用节点实际移动量（有弹簧），非光标原始移动量
-          const dx = newX - dragOrigin.x
-          const dy = newY - dragOrigin.y
-          const dists = getConnectedWithDistance(dragNodeId, state.edges)
-          const currentNodes = state.nodes
-          for (const [nid, dist] of dists) {
-            if (nid === dragNodeId) continue
-            const orig = originMap.get(nid)
-            if (!orig) continue
-            // 权重：距离越远跟移越少，带自然衰减
-            const w = dist <= 1 ? 0.65 : dist <= 2 ? 0.35 : dist <= 3 ? 0.18 : 0.08
-            store.updateNode(nid, {
-              position: { x: orig.x + dx * w, y: orig.y + dy * w, z: currentNodes.find(n => n.id === nid)?.position.z ?? 0.5 },
-            })
-          }
-        }
-      }
     }
   }, [isPanning, panStart, isDraggingNode, dragNodeId])
 
@@ -1320,36 +1258,8 @@ export default function BeliefCanvas() {
       const state = useBeliefStore.getState()
       const node = state.nodes.find(n => n.id === dragNodeId)
       if (node) {
-        // 检查是否拖拽到另一个节点附近 → 自动连线
-        const canvas = canvasRef.current
-        if (canvas) {
-          const rect = canvas.getBoundingClientRect()
-          const { offsetX, offsetY, scale } = state.viewState
-          // 用光标的屏幕坐标反算世界坐标（不受弹簧滞后影响）
-          const cursorScreenX = e.clientX - rect.left
-          const cursorScreenY = e.clientY - rect.top
-          const cursorWorldX = (cursorScreenX - rect.width / 2 - offsetX) / scale
-          const cursorWorldY = (cursorScreenY - rect.height / 2 - offsetY) / scale
-          for (const other of state.nodes) {
-            if (other.id === dragNodeId) continue
-            const dist = Math.sqrt(
-              (cursorWorldX - other.position.x) ** 2 +
-              (cursorWorldY - other.position.y) ** 2
-            )
-            if (dist < DRAG_CONNECT_DISTANCE && canConnect(node.type, other.type)) {
-              tryCreateEdge(dragNodeId, other.id)
-              break
-            }
-          }
-        }
-        // 持久化节点新位置（包括链路节点）
+        // 仅移动当前节点；空间接近不意味着语义连接。
         db.beliefNodes.update(dragNodeId, { position: node.position })
-        for (const [nid] of chainOriginRef.current) {
-          if (nid === dragNodeId) continue
-          const updated = state.nodes.find(n => n.id === nid)
-          if (updated) db.beliefNodes.update(nid, { position: updated.position })
-        }
-        chainOriginRef.current = new Map()
       }
       setIsDraggingNode(false)
       setDragNodeId(null)
@@ -1508,21 +1418,21 @@ export default function BeliefCanvas() {
         </span>
         <div className="flex gap-2 pointer-events-auto items-center" style={{ color: '#9C9088' }}>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="信念总览"
             onClick={() => setDrawerOpen(true)}
           >
-            📋
+            <ToolbarIcon name="overview" />
           </button>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="书本问答"
             onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
-            📚
+            <ToolbarIcon name="books" />
           </button>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="我的探索：记录、问询与继续思考"
             aria-label="我的探索"
             onClick={() => {
@@ -1531,29 +1441,29 @@ export default function BeliefCanvas() {
               setDeepInsightOpen(true)
             }}
           >
-            💡
+            <ToolbarIcon name="explore" />
           </button>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="自动梳理布局"
             onClick={() => setForceEnabled(!forceEnabled)}
             style={{ opacity: forceEnabled ? 1 : 0.5 }}
           >
-            🌿
+            <ToolbarIcon name="arrange" />
           </button>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="设置"
             onClick={() => setSettingsOpen(true)}
           >
-            ⚙️
+            <ToolbarIcon name="settings" />
           </button>
           <button
-            className="hover:opacity-70 transition-opacity text-xl px-2 py-1"
+            className="hover:bg-[#F3E9DB] transition-colors p-2 rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/80"
             title="使用手册"
             onClick={() => setManualOpen(true)}
           >
-            ❓
+            <ToolbarIcon name="help" />
           </button>
         </div>
       </div>
@@ -1700,6 +1610,20 @@ export default function BeliefCanvas() {
         />
       )}
 
+      {pendingLink && (() => {
+        const source = store.nodes.find(node => node.id === pendingLink.sourceId)
+        const target = store.nodes.find(node => node.id === pendingLink.targetId)
+        return source && target ? <CreateLinkDialog
+          key={`${source.id}-${target.id}`}
+          source={source}
+          target={target}
+          nodes={store.nodes}
+          edges={store.edges}
+          onConfirm={type => { tryCreateEdge(source.id, target.id, type); setPendingLink(null) }}
+          onClose={() => setPendingLink(null)}
+        /> : null
+      })()}
+
       {/* 右键菜单 */}
       {contextMenu && (
         <ContextMenu
@@ -1718,6 +1642,10 @@ export default function BeliefCanvas() {
       <NodeDetailPanel onOpenExploration={(id) => {
         setExplorationSessionId(id)
         setExplorationSourceNodeId(undefined)
+        setDeepInsightOpen(true)
+      }} onThinkWithNianNian={(nodeId) => {
+        setExplorationSessionId(undefined)
+        setExplorationSourceNodeId(nodeId)
         setDeepInsightOpen(true)
       }} />
 
@@ -1884,9 +1812,10 @@ export default function BeliefCanvas() {
               handleInputSubmit(content)
             }}
             disabled={aiToast.loading}
-            title="AI 分析（让 AI 帮你分类和润色）"
+            title="请念念帮我看一眼（分类与润色由你确认）"
+            aria-label="请念念帮我看一眼"
           >
-            🤖
+            <NianNian size={24} />
           </button>
           <div className="relative flex-1">
             {aiToast.loading && (

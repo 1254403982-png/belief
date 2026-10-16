@@ -199,19 +199,15 @@ function CanvasGuide() {
       />
       <GuideItem
         action="拖拽节点"
-        result="移动节点位置，同一链路上的节点会跟随移动（越远跟移越少）"
-      />
-      <GuideItem
-        action="拖拽节点靠近另一节点"
-        result="自动建立连线（距离足够近时触发）"
+        result="只移动当前节点；位置接近不会自动建立关系"
       />
       <GuideItem
         action="右键点击节点"
-        result="弹出菜单：建立连接 / 标记待清理 / 长期信念 / 删除 / 删除整条链路"
+        result="弹出菜单：建立连接 / 标记待清理 / 长期信念 / 删除"
       />
       <GuideItem
         action="点击连线"
-        result="弹出连线信息浮层（两端节点名、类型、断开按钮）"
+        result="查看和修改关系类型，也可请念念问一个问题或断开关系"
       />
       <GuideItem
         action="点击空白"
@@ -219,7 +215,7 @@ function CanvasGuide() {
       />
 
       <TipBox>
-        <strong>小技巧：</strong>拖拽节点时，与其相连的整个链路会跟随移动，方便整理信念网络布局。
+        <strong>小技巧：</strong>选中节点后点击连接图标，再点另一个节点；选择关系类型后才会创建连线。
       </TipBox>
     </div>
   )
@@ -243,11 +239,10 @@ function NodeGuide() {
       <div className="pt-2">
         <p className="text-sm font-medium mb-2" style={{ color: '#4A4036' }}>连线类型</p>
         {[
-          { type: 'derives_from', label: '派生自', desc: '一个信念从另一个信念中产生' },
-          { type: 'leads_to', label: '导向', desc: '一个信念引导出另一个信念' },
-          { type: 'related_to', label: '相关', desc: '两个信念存在关联' },
-          { type: 'suggested_by_ai', label: 'AI 建议', desc: '由 AI 自动识别的关联' },
-          { type: 'manual', label: '手动连接', desc: '你手动建立的连接' },
+          { type: 'leads_to', label: '可能影响', desc: '按点击顺序保留一个待验证的方向' },
+          { type: 'related_to', label: '有关联', desc: '有关联，但不判定因果方向' },
+          { type: 'manual', label: '待厘清', desc: '先留下关系，今后再整理' },
+          { type: 'suggested_by_ai', label: '旧 AI 建议', desc: '旧数据保留，建议点开连线核对' },
         ].map((t) => (
           <div key={t.type} className="flex items-start gap-2 mt-2">
             <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{
@@ -262,7 +257,7 @@ function NodeGuide() {
       </div>
 
       <TipBox>
-        连线方向会自动按信念层级调整（深层→浅层），无论你先点哪个节点建立连接。
+        两个节点共同指向同一个节点，不意味着它们彼此影响。需要第三条关系时可以单独添加；已有关系不会因此消失。
       </TipBox>
     </div>
   )
@@ -423,7 +418,7 @@ function ShortcutsGuide() {
     { key: '双击节点', desc: '编辑节点文字' },
     { key: '长按节点', desc: '进入聚焦模式（0.6 秒）' },
     { key: '拖拽空白', desc: '平移画布视野' },
-    { key: '拖拽节点', desc: '移动节点（链路跟随）' },
+    { key: '拖拽节点', desc: '移动当前节点' },
   ]
 
   return (
@@ -481,7 +476,7 @@ function TypeGuide() {
           核心信念 → 附属信念 → 思维/情绪模式 → 想法/情绪 → 行为 → 物质现实
         </div>
         <div className="text-xs leading-relaxed text-center mt-0.5" style={{ color: '#C4B8B0' }}>
-          连线方向会自动按此层级调整
+          层级帮助你理解节点类型，不会自动决定两句话之间的因果方向
         </div>
       </div>
 
@@ -580,13 +575,6 @@ function TrashGuide() {
           <li>「恢复」—— 将节点恢复到画布</li>
           <li>「彻底删除」—— 立即永久删除，不可恢复</li>
         </ul>
-      </div>
-
-      <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>删除整条链路</p>
-        <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          右键节点 →「删除整条链条」，会将该节点所在连通链路上的所有节点一并软删除。
-        </p>
       </div>
 
       <TipBox>

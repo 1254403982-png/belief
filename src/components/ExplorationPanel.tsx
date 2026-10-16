@@ -3,6 +3,7 @@ import { db, type BeliefNode, type ConversationSession, type ExplorationCandidat
 import { continueFromJournal, listExplorations, retainExplorationCandidate, saveExploration } from '../db/explorations'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { askExplorationQuestion, describeAIRequestFailure, getExplorationAvailability, summarizeExploration } from '../utils/deepseek'
+import NianNian from './NianNian'
 import { appendThought, EXPLORATION_TYPES, newExploration, normalizeExploration } from '../utils/exploration'
 import { readExplorationRecovery, storeExplorationRecovery } from '../utils/explorationRecovery'
 import { formatDate, getTypeLabel } from './utils'
@@ -269,7 +270,7 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
         <header className="px-6 pt-5 pb-4 border-b border-[#E0D8CC]">
           <div className="flex justify-between gap-4 items-center">
             <div>
-              <h2 id="exploration-title" className="font-serif text-xl text-[#5C4A3A]">我的探索</h2>
+              <h2 id="exploration-title" className="font-serif text-xl text-[#5C4A3A] flex items-center gap-2"><NianNian size={30} /> 我的探索</h2>
               <p className="text-xs text-[#7A7670] mt-1">先把自己的话写下来，不急着得出结论。</p>
             </div>
             <button className="btn-soft text-sm" disabled={busy === 'retain'} onClick={() => void close()}>今天到这里</button>
@@ -290,7 +291,7 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
           {!loading && session?.history.length === 0 && <p className="text-sm leading-7 text-[#7A7670]">可以从一件具体的事、一种感受，或一个尚未想明白的念头开始。先自己写也很好。</p>}
           {!loading && session?.history.map((message, index) => (
             <article key={message.id ?? index} className={message.role === 'user' ? 'space-y-2' : 'border-l-2 border-[#D8CCB7] pl-4'}>
-              <p className="text-xs text-[#7A7670] mb-1">{message.role === 'user' ? '我的思考' : message.kind === 'summary' ? '按你的请求整理 · 可保留不同意见' : message.kind === 'question' ? '一个问题' : '之前的 AI 回应 · 供回看'}</p>
+              <p className="text-xs text-[#7A7670] mb-1">{message.role === 'user' ? '我的思考' : message.kind === 'summary' ? '念念按你的请求整理 · 可保留不同意见' : message.kind === 'question' ? '念念问了一个问题' : '念念之前的回应 · 供回看'}</p>
               <p className={`whitespace-pre-wrap break-words leading-8 ${message.role === 'user' ? 'text-base text-[#4A4036]' : 'text-sm text-[#73675A]'}`}>{message.content}</p>
             </article>
           ))}
