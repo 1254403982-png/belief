@@ -200,7 +200,9 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                 设置
               </h3>
               <button
-                className="text-sm hover:opacity-70 transition-opacity"
+                type="button"
+                aria-label="关闭设置"
+                className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
                 onClick={onClose}
               >

@@ -246,9 +246,11 @@ export default function BeliefCanvas() {
   const velocityRef = useRef({ x: 0, y: 0 })
   const lastPanTimeRef = useRef(0)
   const lastPanPosRef = useRef({ x: 0, y: 0 })
+  const DRAG_CONNECT_DISTANCE = 50
 
   // 恢复原版链式拖拽：每次按下重新记录整条链的起点。
   const chainOriginRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const dragPointerStartRef = useRef({ x: 0, y: 0 })
   // 拖拽偏移：点击位置相对于节点中心的世界坐标偏移
   const dragOffsetRef = useRef({ x: 0, y: 0 })
 
@@ -1089,6 +1091,7 @@ export default function BeliefCanvas() {
         draggingNodeRef.current = true
         setIsDraggingNode(true)
         setDragNodeId(hit.id)
+        dragPointerStartRef.current = { x: e.clientX, y: e.clientY }
         const chainDists = getConnectedWithDistance(hit.id, state.edges)
         const originMap = new Map<string, { x: number; y: number }>()
         for (const [id] of chainDists) {
@@ -1195,7 +1198,6 @@ export default function BeliefCanvas() {
     }
 
     if (isDraggingNode && dragNodeId) {
-      draggingNodeRef.current = false
       const state = useBeliefStore.getState()
       const { offsetX, offsetY, scale } = state.viewState
       const world = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, offsetX, offsetY, scale)
@@ -1281,7 +1283,22 @@ export default function BeliefCanvas() {
     }
 
     if (isDraggingNode && dragNodeId) {
+      draggingNodeRef.current = false
       const state = useBeliefStore.getState()
+      const canvas = canvasRef.current
+      const dragDistance = Math.hypot(e.clientX - dragPointerStartRef.current.x, e.clientY - dragPointerStartRef.current.y)
+      if (e.type === 'pointerup' && canvas && chainOriginRef.current.size > 0 && dragDistance > 8) {
+        // 原版用松手光标位置判断靠近，不受节点弹性滞后影响。
+        // 只建立“待厘清”关系，不凭空间距离推断因果方向。
+        const rect = canvas.getBoundingClientRect()
+        const { offsetX, offsetY, scale } = state.viewState
+        const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height, offsetX, offsetY, scale)
+        const nearest = state.nodes
+          .filter(node => node.id !== dragNodeId && !node.deletedAt)
+          .map(node => ({ node, distance: Math.hypot(point.x - node.position.x, point.y - node.position.y) }))
+          .sort((a, b) => a.distance - b.distance)[0]
+        if (nearest && nearest.distance < DRAG_CONNECT_DISTANCE) tryCreateEdge(dragNodeId, nearest.node.id)
+      }
       for (const id of chainOriginRef.current.keys()) {
         const node = state.nodes.find(item => item.id === id)
         if (node) void db.beliefNodes.update(id, { position: node.position })
@@ -1435,15 +1452,15 @@ export default function BeliefCanvas() {
       )}
 
       {/* 顶部栏 */}
-      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-6 py-3 z-30`}>
+      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-6 py-3 pointer-events-none z-30`}>
         <span
-          className="font-serif text-lg tracking-wider cursor-pointer select-none"
+          className="font-serif text-lg tracking-wider pointer-events-auto cursor-pointer select-none"
           style={{ color: '#5C4A3A' }}
           onClick={() => store.setViewState({ offsetX: 0, offsetY: 0, scale: 1 })}
         >
           信念
         </span>
-        <div className="flex gap-2 items-center" style={{ color: '#9C9088' }}>
+        <div className="flex gap-2 items-center pointer-events-auto" style={{ color: '#9C9088' }}>
           <button
             className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
             title="信念总览"
@@ -1777,7 +1794,7 @@ export default function BeliefCanvas() {
                 <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
                   拖动一条信念，看看相连节点如何跟随
                   <br />
-                  <span style={{ color: '#9C9088' }}>建立新关系请点节点旁的连接按钮，由你选择关系类型</span>
+                  <span style={{ color: '#9C9088' }}>拖到另一节点附近可先连成待厘清关系；连接按钮可选择关系类型</span>
                 </p>
                 <div className="flex justify-center gap-2">
                   <StepDots current={3} total={5} />

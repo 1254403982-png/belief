@@ -100,7 +100,9 @@ export default function UserManualPanel({ open, onClose }: Props) {
             📖 使用手册
           </h3>
           <button
-            className="text-sm hover:opacity-70 transition-opacity"
+            type="button"
+            aria-label="关闭使用手册"
+            className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
             style={{ color: '#9C9088' }}
             onClick={onClose}
           >
@@ -199,7 +201,7 @@ function CanvasGuide() {
       />
       <GuideItem
         action="拖拽节点"
-        result="拖动时相连节点按距离逐级跟随，松手后停在当前位置；位置接近不会自动建立关系"
+        result="相连节点逐级跟随；拖到另一节点附近松手，会添加一条待厘清关系"
       />
       <GuideItem
         action="右键点击节点"
@@ -371,7 +373,7 @@ function AIGuide() {
         <ul className="text-xs mt-2 space-y-1" style={{ color: '#9C9088', listStyle: 'disc', paddingLeft: 16 }}>
           <li>首次进入时，把节点内容放入草稿</li>
           <li>已有相关探索时，继续上次的记录</li>
-          <li>由你决定何时问询、整理或加入画布，不自动连线</li>
+          <li>由你决定何时问询、整理或加入画布；AI 建议入图不会自行连线</li>
         </ul>
       </div>
 
