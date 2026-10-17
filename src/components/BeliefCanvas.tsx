@@ -1452,31 +1452,37 @@ export default function BeliefCanvas() {
       )}
 
       {/* 顶部栏 */}
-      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-6 py-3 pointer-events-none z-30`}>
-        <span
-          className="font-serif text-lg tracking-wider pointer-events-auto cursor-pointer select-none"
-          style={{ color: '#5C4A3A' }}
+      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-3 sm:px-6 py-3 pointer-events-none z-30`}>
+        <button
+          type="button"
+          aria-label="将画布视角归位"
+          className="hidden sm:inline-block font-serif text-lg tracking-wider text-[#5C4A3A] pointer-events-auto cursor-pointer select-none rounded-md px-1 hover:text-[#8B6B4A] transition-colors"
           onClick={() => store.setViewState({ offsetX: 0, offsetY: 0, scale: 1 })}
         >
           信念
-        </span>
-        <div className="flex gap-2 items-center pointer-events-auto" style={{ color: '#9C9088' }}>
+        </button>
+        <div role="group" aria-label="画布工具" className="flex gap-1 sm:gap-2 items-center pointer-events-auto">
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="信念总览"
+            aria-label="打开信念总览"
             onClick={() => setDrawerOpen(true)}
           >
             <ToolbarIcon name="overview" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="书本问答"
+            aria-label="打开书本问答"
             onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
             <ToolbarIcon name="books" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="我的探索：记录、问询与继续思考"
             aria-label="我的探索"
             onClick={() => {
@@ -1488,23 +1494,29 @@ export default function BeliefCanvas() {
             <ToolbarIcon name="explore" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="自动梳理布局"
+            aria-label="自动梳理布局"
+            aria-pressed={forceEnabled}
             onClick={() => setForceEnabled(!forceEnabled)}
-            style={{ opacity: forceEnabled ? 1 : 0.5 }}
           >
             <ToolbarIcon name="arrange" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="设置"
+            aria-label="打开设置"
             onClick={() => setSettingsOpen(true)}
           >
             <ToolbarIcon name="settings" />
           </button>
           <button
-            className="hover:bg-[#F3E9DB] transition-colors w-10 h-10 flex items-center justify-center rounded-full border border-[#E9DFD1] bg-[#FFFBF5]/90"
+            type="button"
+            className="canvas-tool-button"
             title="使用手册"
+            aria-label="打开使用手册"
             onClick={() => setManualOpen(true)}
           >
             <ToolbarIcon name="help" />
@@ -1843,7 +1855,8 @@ export default function BeliefCanvas() {
         <div className="relative flex items-center gap-2">
           {/* AI 按钮 */}
           <button
-            className="flex-shrink-0 w-9 h-9 rounded-full transition-all hover:opacity-70 flex items-center justify-center text-base"
+            type="button"
+            className="flex-shrink-0 w-11 h-11 rounded-full transition-colors hover:opacity-80 flex items-center justify-center text-base"
             style={{
               color: aiToast.loading ? '#C8A96E' : '#9C9088',
               backgroundColor: aiToast.loading ? 'rgba(200, 169, 110, 0.12)' : 'rgba(200, 200, 190, 0.06)',
@@ -1873,8 +1886,9 @@ export default function BeliefCanvas() {
               </div>
             )}
             <input
-              className="input-underline text-center w-full pr-9"
+              className="input-underline text-center w-full pr-12"
               type="text"
+              aria-label="写下一个念头"
               placeholder="想到了什么...？"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -1899,7 +1913,8 @@ export default function BeliefCanvas() {
             />
             {/* 发送按钮（输入框内部右侧） */}
             <button
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-all"
+              type="button"
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[#F3E9DB]"
               style={{
                 color: inputValue.trim() ? '#5A7A68' : '#C4B8B0',
                 opacity: inputValue.trim() ? 1 : 0.5,
@@ -1913,6 +1928,7 @@ export default function BeliefCanvas() {
                 handleSendInput(content)
               }}
               title="发送（Enter）"
+              aria-label="发送念头"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M2 8l12-6-6 12-2-6-4-0z" fill="currentColor" />
@@ -1921,7 +1937,8 @@ export default function BeliefCanvas() {
           </div>
           {/* 今日待办按钮 */}
           <button
-            className="flex-shrink-0 text-xs px-2.5 py-1.5 rounded-full transition-all hover:opacity-70 flex items-center gap-1"
+            type="button"
+            className="flex-shrink-0 min-w-11 min-h-11 text-xs px-2.5 rounded-full transition-colors hover:opacity-80 flex items-center justify-center gap-1"
             style={{
               color: dailyTaskCount > 0 ? '#C8A96E' : '#9C9088',
               backgroundColor: dailyTaskCount > 0 ? 'rgba(200, 169, 110, 0.1)' : 'rgba(200, 200, 190, 0.06)',
@@ -1929,8 +1946,10 @@ export default function BeliefCanvas() {
             }}
             onClick={() => setDailyPanelOpen(true)}
             title="我的待办（Ctrl+Enter 快速添加行动）"
+            aria-label={dailyTaskCount > 0 ? `我的待办，${dailyTaskCount} 项` : '打开我的待办'}
           >
-            📌 {dailyTaskCount > 0 && <span className="font-medium">{dailyTaskCount}</span>}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 4 12 12M14 3l7 7-3 1-7-7 3-1ZM10 8l6 6-5 5-4-4-4 6 6-4-4-4 5-5Z" /></svg>
+            {dailyTaskCount > 0 && <span className="font-medium tabular-nums">{dailyTaskCount}</span>}
           </button>
         </div>
       </div>
