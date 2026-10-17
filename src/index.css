@@ -101,4 +101,18 @@
     border-left: 1px solid #E0D8CC;
     box-shadow: -4px 0 24px rgba(74, 64, 54, 0.06);
   }
+
+  /* 手册正文比画布提示更易读，仍保留暖白的轻盈感。 */
+  .manual-content p.text-xs,
+  .manual-content li,
+  .manual-content .manual-guide-result {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: #746A61 !important;
+  }
+
+  .manual-content p.text-xs,
+  .manual-content li {
+    overflow-wrap: anywhere;
+  }
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../db'
 import { exportAsJSON, exportAsMarkdown } from '../utils/export'
+import ToolbarIcon from './ToolbarIcon'
 
 interface Props {
   open: boolean
@@ -384,7 +385,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
               {onOpenManual && (
                 <section>
                   <button
-                    className="text-sm px-4 py-2 rounded-full transition-all hover:opacity-80 w-full"
+                    className="text-sm px-4 py-2 rounded-full transition-all hover:opacity-80 w-full flex items-center justify-center gap-2"
                     style={{
                       backgroundColor: 'rgba(139, 164, 188, 0.08)',
                       color: '#5C4A3A',
@@ -395,7 +396,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       onOpenManual()
                     }}
                   >
-                    📖 使用手册
+                    <ToolbarIcon name="help" /> 使用手册
                   </button>
                 </section>
               )}

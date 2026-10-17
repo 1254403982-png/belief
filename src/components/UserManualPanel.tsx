@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ToolbarIcon from './ToolbarIcon'
+import NianNian from './NianNian'
 
 interface Props {
   open: boolean
@@ -10,66 +12,57 @@ interface Props {
 interface Section {
   id: string
   title: string
-  icon: string
   content: React.ReactNode
 }
 
 export default function UserManualPanel({ open, onClose }: Props) {
   const [activeSection, setActiveSection] = useState('icons')
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const sections: Section[] = [
     {
       id: 'icons',
-      title: '界面图标',
-      icon: '🧭',
+      title: '先看入口',
       content: <IconsGuide />,
     },
     {
       id: 'canvas',
       title: '画布操作',
-      icon: '🖱️',
       content: <CanvasGuide />,
     },
     {
       id: 'nodes',
       title: '节点与连线',
-      icon: '🔗',
       content: <NodeGuide />,
     },
     {
       id: 'input',
-      title: '底部输入框',
-      icon: '⌨️',
+      title: '记录念头',
       content: <InputGuide />,
     },
     {
       id: 'ai',
-      title: '探索与 AI',
-      icon: '🤖',
+      title: '念念与探索',
       content: <AIGuide />,
     },
     {
       id: 'data',
       title: '数据与备份',
-      icon: '💾',
       content: <DataGuide />,
     },
     {
       id: 'shortcuts',
       title: '快捷键',
-      icon: '⚡',
       content: <ShortcutsGuide />,
     },
     {
       id: 'types',
-      title: '信念类型体系',
-      icon: '🗂️',
+      title: '信念类型',
       content: <TypeGuide />,
     },
     {
       id: 'trash',
       title: '垃圾箱与释怀',
-      icon: '🗑️',
       content: <TrashGuide />,
     },
   ]
@@ -88,6 +81,9 @@ export default function UserManualPanel({ open, onClose }: Props) {
       />
 
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manual-title"
         className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
         initial={{ x: 320 }}
         animate={{ x: 0 }}
@@ -95,10 +91,14 @@ export default function UserManualPanel({ open, onClose }: Props) {
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         {/* 头部 */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-3">
-          <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-            📖 使用手册
-          </h3>
+        <div className="flex items-start justify-between px-5 pt-5 pb-3">
+          <div className="flex items-start gap-2.5">
+            <NianNian size={28} />
+            <div>
+              <h3 id="manual-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>使用手册</h3>
+              <p className="text-xs leading-5 mt-1" style={{ color: '#746A61' }}>想做什么，就从下面选一项。</p>
+            </div>
+          </div>
           <button
             type="button"
             aria-label="关闭使用手册"
@@ -111,29 +111,37 @@ export default function UserManualPanel({ open, onClose }: Props) {
         </div>
 
         {/* 章节导航 */}
-        <div className="px-4 pb-2 flex gap-1.5 overflow-x-auto flex-shrink-0">
+        <nav aria-label="使用手册章节" className="px-4 pb-3 grid grid-cols-2 gap-1.5 flex-shrink-0 max-h-[38vh] overflow-y-auto">
           {sections.map((s) => (
             <button
               key={s.id}
-              className="text-xs px-2.5 py-1 rounded-full transition-all flex-shrink-0 hover:opacity-80"
+              type="button"
+              aria-current={activeSection === s.id ? 'page' : undefined}
+              aria-controls="manual-section-content"
+              className="min-h-10 flex items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm leading-5 transition-colors hover:bg-[#F3E9DB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96E]"
               style={{
-                color: activeSection === s.id ? '#5C4A3A' : '#9C9088',
+                color: activeSection === s.id ? '#5C4A3A' : '#746A61',
                 backgroundColor: activeSection === s.id
-                  ? 'rgba(200, 169, 110, 0.12)'
+                  ? 'rgba(200, 169, 110, 0.14)'
                   : 'transparent',
                 border: activeSection === s.id
                   ? '1px solid rgba(200, 169, 110, 0.25)'
                   : '1px solid transparent',
               }}
-              onClick={() => setActiveSection(s.id)}
+              onClick={() => {
+                setActiveSection(s.id)
+                contentRef.current?.scrollTo({ top: 0 })
+              }}
             >
-              {s.icon} {s.title}
+              <span className="flex-shrink-0" aria-hidden="true"><ManualSectionIcon name={s.id} /></span>
+              <span>{s.title}</span>
             </button>
           ))}
-        </div>
+        </nav>
 
         {/* 内容区 */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-3">
+        <div ref={contentRef} id="manual-section-content" className="manual-content flex-1 overflow-y-auto border-t border-[#E9DFD1] px-5 pb-6 pt-4" role="region" aria-label={sections.find((s) => s.id === activeSection)?.title}>
+          <h4 className="font-serif text-base mb-3" style={{ color: '#5C4A3A' }}>{sections.find((s) => s.id === activeSection)?.title}</h4>
           {sections.find((s) => s.id === activeSection)?.content}
         </div>
       </motion.div>
@@ -141,36 +149,50 @@ export default function UserManualPanel({ open, onClose }: Props) {
   )
 }
 
+function ManualSectionIcon({ name }: { name: string }) {
+  const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (name) {
+    case 'icons': return <ToolbarIcon name="help" />
+    case 'canvas': return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></svg>
+    case 'nodes': return <svg {...common}><circle cx="5" cy="12" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="m7 11 10-4M7 13l10 4" /></svg>
+    case 'input': return <svg {...common}><path d="M4 5h16v14H4zM7 9h10M7 13h6M7 16h10" /></svg>
+    case 'ai': return <NianNian size={18} />
+    case 'data': return <svg {...common}><path d="M5 4h12l2 2v14H5zM8 4v6h8V4M8 20v-6h8v6" /></svg>
+    case 'shortcuts': return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M6 9h2M10 9h2M14 9h2M6 13h2M10 13h2M14 13h2M7 16h10" /></svg>
+    case 'types': return <svg {...common}><circle cx="7" cy="7" r="3" /><circle cx="16" cy="9" r="2.5" /><circle cx="12" cy="17" r="2" /></svg>
+    case 'trash': return <svg {...common}><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
+    default: return null
+  }
+}
+
 // ====== 各章节内容组件 ======
 
 function IconsGuide() {
   const items = [
-    { icon: '📋', name: '信念总览', desc: '查看信念树、领域分类、待破除/待坚定列表、垃圾箱' },
-    { icon: '📚', name: '书本问答', desc: '选择已收录的书，提问书中概念；需要时可单次结合自己的信念' },
-    { icon: '💡', name: '我的探索', desc: '保存自己的思考，需要时让 AI 问一个问题；旧深度思考笔记也在这里' },
-    { icon: '🌿', name: '自动梳理布局', desc: '开启/关闭力导向自动布局，让节点自动排列。再次点击关闭' },
-    { icon: '⚙️', name: '设置', desc: '账号信息、定期梳理开关、手动触发梳理、数据导出（JSON/Markdown）' },
-    { icon: '❓', name: '使用手册', desc: '随时查看画布、探索和数据保存方式' },
-  ]
+    { icon: 'overview', name: '信念总览', desc: '找回已记录的信念，也能查看分类和垃圾箱。' },
+    { icon: 'books', name: '书本问答', desc: '先选书，再问书里的概念；只有你开启选项时，才会结合自己的信念。' },
+    { icon: 'explore', name: '我的探索', desc: '先写下自己的想法。需要时，可以请念念问你一个问题。' },
+    { icon: 'arrange', name: '自动梳理布局', desc: '让画布上的节点自动排开；再点一次就停止。' },
+    { icon: 'settings', name: '设置', desc: '管理账号、梳理提醒，以及导出本机记录。' },
+    { icon: 'help', name: '使用手册', desc: '想不起某个操作时，随时回来看看。' },
+  ] as const
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
-        顶部栏的常用入口：
-      </p>
+    <div className="space-y-3">
+      <p className="text-sm leading-6" style={{ color: '#746A61' }}>这些图标和画布顶部的一样，照着形状找就好。</p>
       {items.map((item) => (
-        <div key={item.name} className="flex gap-3 items-start">
-          <span className="text-xl flex-shrink-0 mt-0.5">{item.icon}</span>
-          <div>
-            <p className="text-sm font-medium" style={{ color: '#4A4036' }}>{item.name}</p>
-            <p className="text-xs leading-relaxed mt-0.5" style={{ color: '#9C9088' }}>
+        <div key={item.name} className="flex gap-3 items-start rounded-xl border border-[#EEE5D9] bg-[#FFFBF5]/70 p-3">
+          <span className="w-9 h-9 rounded-full border border-[#E9DFD1] flex items-center justify-center flex-shrink-0" style={{ color: '#746A61' }}><ToolbarIcon name={item.icon} /></span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium leading-5" style={{ color: '#4A4036' }}>{item.name}</p>
+            <p className="text-sm leading-6 mt-0.5" style={{ color: '#746A61' }}>
               {item.desc}
             </p>
           </div>
         </div>
       ))}
       <TipBox>
-        点击左上角的「信念」标题，可以一键将画布复位到中心位置。
+        画布找不到了？点左上角的「信念」，就能回到画布中心。
       </TipBox>
     </div>
   )
@@ -185,11 +207,11 @@ function CanvasGuide() {
       />
       <GuideItem
         action="滚动鼠标滚轮"
-        result="缩放画布（0.3x ~ 2.0x）"
+        result="放大或缩小画布，方便看清局部或整体。"
       />
       <GuideItem
         action="单击节点"
-        result="选中节点，桌面端右侧弹出详情面板，手机端底部弹出（不遮挡画布）"
+        result="打开这条信念的详情，可以编辑文字、分类或查看关系。"
       />
       <GuideItem
         action="双击节点"
@@ -197,11 +219,11 @@ function CanvasGuide() {
       />
       <GuideItem
         action="长按节点（0.6秒）"
-        result="进入聚焦模式，高亮该节点所在的整条信念链路，其它区域轻微淡化"
+        result="只看和它相连的信念，其他内容会变淡。"
       />
       <GuideItem
         action="拖拽节点"
-        result="相连节点逐级跟随；拖到另一节点附近松手，会添加一条待厘清关系"
+        result="相连的节点会轻轻跟随。拖到另一节点附近松手，会先连成一条「待厘清」关系。"
       />
       <GuideItem
         action="右键点击节点"
@@ -213,11 +235,11 @@ function CanvasGuide() {
       />
       <GuideItem
         action="点击空白"
-        result="取消选中、退出聚焦、关闭所有浮层"
+        result="取消节点选中，或退出聚焦。"
       />
 
       <TipBox>
-        <strong>小技巧：</strong>选中节点后点击连接图标，再点另一个节点；选择关系类型后才会创建连线。
+        想自己决定关系类型？先选中节点，点连接图标，再点另一节点。
       </TipBox>
     </div>
   )
@@ -229,13 +251,13 @@ function NodeGuide() {
       <p className="text-sm font-medium" style={{ color: '#4A4036' }}>选中节点后的详情面板</p>
 
       <GuideItem action="内容编辑" result="点击编辑按钮修改节点文字" />
-      <GuideItem action="类型切换" result="8 种信念类型可选（核心信念→物质现实）" />
+      <GuideItem action="类型切换" result="给这条记录选择合适的层次；不确定时可以先留在「未分类」。" />
       <GuideItem action="领域分类" result="9 个预设领域 + 自定义分类（学习/工作/金钱/感情等）" />
       <GuideItem action="态度标记" result="破除 / 坚定 / 观察 —— 标记你对这个信念的态度" />
       <GuideItem action="用户笔记" result="自由记录对这个信念的补充思考" />
       <GuideItem action="长期信念" result="标记后在「待坚定」列表中显示" />
       <GuideItem action="待清理" result="标记后在「待破除」列表中显示，并触发每周梳理提醒" />
-      <GuideItem action="释怀" result="优雅的粒子消散动画（2.5 秒），自动进入垃圾箱" />
+      <GuideItem action="释怀" result="播放轻柔的消散动画后进入垃圾箱，7 天内可以恢复。" />
       <GuideItem action="删除" result="软删除，进入垃圾箱，7 天后自动清理" />
 
       <div className="pt-2">
@@ -269,7 +291,7 @@ function InputGuide() {
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
-        画布底部的输入框是你与信念网络交互的主要入口。输入框左侧是 AI 按钮，右侧内置发送按钮。
+        想到一句话，就从画布底部开始写。左侧是念念，输入框里有发送按钮。
       </p>
 
       <div className="rounded-lg p-3 space-y-3" style={{
@@ -277,10 +299,9 @@ function InputGuide() {
         border: '1px solid rgba(200, 169, 110, 0.1)',
       }}>
         <div>
-          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>Enter / ➤ 直接发送</p>
+          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>直接记下：Enter 或纸飞机</p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
-            输入任何念头，按 Enter 或点击输入框内的发送按钮（纸飞机图标 ➤），内容会立即以「未分类」类型出现在画布上，不做 AI 处理。
-            这是最快的输入方式，适合快速捕捉想法。
+            你的原话会以「未分类」节点出现在画布上。先记下来，之后再整理也可以。
           </p>
           <p className="text-xs mt-1" style={{ color: '#C4B8B0' }}>
             输入框为空时发送按钮为灰色，输入文字后自动亮起。
@@ -288,10 +309,9 @@ function InputGuide() {
         </div>
         <div className="border-t" style={{ borderColor: 'rgba(200, 169, 110, 0.12)' }} />
         <div>
-          <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🤖 AI 按钮</p>
+          <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><NianNian size={20} />请念念帮忙</p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
-            点击输入框左侧的 🤖 按钮，AI 会分析你的输入：判断信念类型 → 润色表达 → 建议分类领域 → 识别与已有节点的关联 → 给出温柔洞察。
-            你可以选择「采纳建议」「仅分类」或「保留原样」。
+            点击输入框左侧的念念头像，可以看看分类和表达建议。是否采纳由你决定，也能保留自己的原话。
           </p>
         </div>
         <div className="border-t" style={{ borderColor: 'rgba(200, 169, 110, 0.12)' }} />
@@ -313,7 +333,7 @@ function InputGuide() {
       </div>
 
       <TipBox>
-        想快速记录？直接输入 + Enter 秒上画布。需要 AI 帮忙分类润色？点一下 🤖 按钮即可。
+        不想整理时，直接按 Enter 记下原话就好。想要建议时，再点念念头像。
       </TipBox>
     </div>
   )
@@ -323,9 +343,9 @@ function AIGuide() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🤖 输入分类</p>
+        <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><NianNian size={20} />念念帮你分类</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          在底部输入框输入文字后，点击左侧的 🤖 按钮，AI 会判断信念类型、润色表达、建议领域分类，并识别与已有节点的关联。
+          在底部写下念头，再点左侧的念念头像。念念会给出信念类型、表达和领域的建议。
           结果以浮层卡片展示，可选择「采纳建议」「仅分类」或「保留原样」。
         </p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
@@ -334,9 +354,9 @@ function AIGuide() {
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>💡 我的探索</p>
+        <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><ToolbarIcon name="explore" />我的探索</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          点击顶部 💡，写下具体经历或尚未想明白的念头。可以一直自己写，也可以主动请 AI 帮忙：
+          点击顶部的探索图标，写下经历或还没想明白的念头。可以一直自己写，也可以主动请念念帮忙：
         </p>
         <ul className="text-xs mt-2 space-y-1" style={{ color: '#9C9088', listStyle: 'disc', paddingLeft: 16 }}>
           <li>「记下这段」保存原话，不调用 AI</li>
@@ -355,7 +375,7 @@ function AIGuide() {
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>📚 书本问答</p>
+        <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><ToolbarIcon name="books" />书本问答</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
           先选书再提问。默认「仅讲书中概念」，回答依据当前收录的书中段落解释概念，并显示检索到的章节；收录内容不足时会说明范围。
           如果想对照自己的经历，本次提问前可开启「结合我的信念」，AI 才会参考当前账号画布中可用的信念记录。发送后此选项会自动关闭，下次提问仍默认只讲书。
@@ -385,7 +405,7 @@ function AIGuide() {
       </div>
 
       <div>
-        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>🌿 定期梳理</p>
+        <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><ToolbarIcon name="arrange" />定期梳理</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
           设置中可开启每月/每周/每日梳理提醒。AI 会分析长期信念和待清理项，给出态度建议。
         </p>
@@ -400,8 +420,8 @@ function DataGuide() {
       <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
         当前账号和记录保存在这台设备的这个浏览器里，尚未跨设备同步。在另一台设备登录同名账号，也不会自动看到这里的画布与探索记录。清除浏览器网站数据前，请先导出备份。
       </p>
-      <GuideItem action="⚙️ 设置 → JSON 备份" result="导出当前账号的画布、日记、待办、探索和书籍问答记录，适合留存完整备份" />
-      <GuideItem action="⚙️ 设置 → Markdown 报告" result="导出画布节点与连线的文字报告，不包含探索与待办" />
+      <GuideItem action="设置 → JSON 备份" result="保存当前账号的画布、日记、待办、探索和书籍问答记录。" />
+      <GuideItem action="设置 → Markdown 报告" result="导出画布节点与连线的文字版，不包含探索与待办。" />
       <TipBox>
         目前只有导出，没有在网站内导入备份的功能。请妥善保存 JSON 文件，暂时不要把它当作跨设备同步方式。
       </TipBox>
@@ -413,7 +433,7 @@ function ShortcutsGuide() {
   const shortcuts = [
     { key: 'Enter', desc: '底部输入框：直接发送到画布\n编辑模式：保存文字' },
     { key: 'Ctrl + Enter', desc: '将输入存入「我的待办」' },
-    { key: 'Esc', desc: '取消选中 / 退出聚焦 / 关闭编辑 / 关闭浮层' },
+    { key: 'Esc', desc: '取消选中 / 退出聚焦 / 关闭编辑' },
     { key: 'Delete', desc: '删除选中的节点（软删除，进入垃圾箱）\n删除选中的连线' },
     { key: '滚轮', desc: '缩放画布' },
     { key: '右键', desc: '节点上：弹出操作菜单\n连线上：不可用' },
@@ -465,7 +485,7 @@ function TypeGuide() {
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed" style={{ color: '#9C9088' }}>
-        信念按层次从深到浅分为 8 种类型。节点大小反映其在信念体系中的层级（越大越核心）。
+        节点有 8 种类型，帮助你区分不同层次。大小和颜色只是视觉提示，不代表哪一句更重要。
       </p>
 
       {/* 层级示意 */}
@@ -555,7 +575,7 @@ function TrashGuide() {
       <div>
         <p className="text-sm font-medium" style={{ color: '#4A4036' }}>软删除机制</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          删除的节点不会立即消失，而是进入垃圾箱。7 天后系统会自动彻底清理。
+          删除的节点会先进入垃圾箱。7 天内可以恢复，之后系统会自动清理。
         </p>
       </div>
 
@@ -570,7 +590,7 @@ function TrashGuide() {
       <div>
         <p className="text-sm font-medium" style={{ color: '#4A4036' }}>垃圾箱操作</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          打开 📋 → 选择「🗑️ 垃圾箱」tab：
+          打开顶部的「信念总览」，再选择「垃圾箱」：
         </p>
         <ul className="text-xs mt-2 space-y-1" style={{ color: '#9C9088', listStyle: 'disc', paddingLeft: 16 }}>
           <li>每个节点显示剩余自动清理天数</li>
@@ -590,13 +610,9 @@ function TrashGuide() {
 
 function GuideItem({ action, result }: { action: string; result: string }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: '#C8A96E' }}>▸</span>
-      <div>
-        <span className="text-sm" style={{ color: '#4A4036' }}>{action}</span>
-        <span className="text-xs mx-1.5" style={{ color: '#C4B8B0' }}>→</span>
-        <span className="text-xs" style={{ color: '#9C9088' }}>{result}</span>
-      </div>
+    <div className="rounded-xl border border-[#EEE5D9] bg-[#FFFBF5]/60 px-3 py-2.5">
+      <p className="text-sm font-medium" style={{ color: '#4A4036' }}>{action}</p>
+      <p className="manual-guide-result mt-1">{result}</p>
     </div>
   )
 }
@@ -604,14 +620,14 @@ function GuideItem({ action, result }: { action: string; result: string }) {
 function TipBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-xs leading-relaxed px-3 py-2 rounded-lg mt-3"
+      className="text-sm leading-6 px-3 py-2.5 rounded-xl mt-3"
       style={{
         backgroundColor: 'rgba(200, 169, 110, 0.06)',
         borderLeft: '2px solid #C8A96E',
-        color: '#7A7670',
+        color: '#665A4D',
       }}
     >
-      💡 {children}
+      <span className="font-medium">小提示：</span>{children}
     </div>
   )
 }
