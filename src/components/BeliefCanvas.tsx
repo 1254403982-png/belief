@@ -201,7 +201,7 @@ export default function BeliefCanvas() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [explorationSessionId, setExplorationSessionId] = useState<string | undefined>()
   const [explorationSourceNodeId, setExplorationSourceNodeId] = useState<string | undefined>()
-  const [onboardingStep, setOnboardingStep] = useState(0) // 0=关闭，1-3=按需引导
+  const [onboardingStep, setOnboardingStep] = useState(0) // 0=关闭，1-4=按需引导
   const guideStartNodeIdsRef = useRef<Set<string>>(new Set())
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [dailyPanelOpen, setDailyPanelOpen] = useState(false)
@@ -1426,6 +1426,8 @@ export default function BeliefCanvas() {
   // ====== UI 渲染 ======
   const selectedNode = store.nodes.find(n => n.id === store.selectedNodeId)
   const topPanelOpen = drawerOpen || settingsOpen || manualOpen || bookQAOpen || dailyPanelOpen || deepInsightOpen || reviewOpen
+  const guideHidden = topPanelOpen || !!pendingLink || !!contextMenu || !!edgePopup || !!store.selectedNodeId || aiToast.visible
+  const aiHintActive = onboardingStep === 4 && !guideHidden
 
   return (
     <div
@@ -1793,11 +1795,13 @@ export default function BeliefCanvas() {
       />
 
       <OnboardingGuide
-        step={drawerOpen || settingsOpen || manualOpen || bookQAOpen || dailyPanelOpen || deepInsightOpen || reviewOpen || !!pendingLink || !!contextMenu || !!edgePopup || !!store.selectedNodeId || aiToast.visible ? 0 : onboardingStep}
+        step={guideHidden ? 0 : onboardingStep}
         hasFirstNode={store.nodes.some(node => !guideStartNodeIdsRef.current.has(node.id))}
         canConnect={store.nodes.length >= 2}
         onStart={() => { setOnboardingStep(2); inputRef.current?.focus() }}
         onNext={() => setOnboardingStep(3)}
+        onShowAI={() => setOnboardingStep(4)}
+        onFocusInput={() => inputRef.current?.focus()}
         onSkip={() => void completeOnboarding()}
         onFinish={() => void completeOnboarding()}
         onOpenManual={() => { void completeOnboarding(); setManualOpen(true) }}
@@ -1814,18 +1818,24 @@ export default function BeliefCanvas() {
               color: aiToast.loading ? '#C8A96E' : '#9C9088',
               backgroundColor: aiToast.loading ? 'rgba(200, 169, 110, 0.12)' : 'rgba(200, 200, 190, 0.06)',
               border: aiToast.loading ? '1px solid rgba(200, 169, 110, 0.25)' : '1px solid rgba(200, 200, 190, 0.15)',
+              boxShadow: aiHintActive ? '0 0 0 3px rgba(200, 169, 110, 0.24)' : undefined,
             }}
             onClick={() => {
-              const input = document.querySelector('.input-underline') as HTMLInputElement
-              const content = input?.value?.trim()
-              if (!content || aiToast.loading) return
-              input.value = ''
+              const content = inputRef.current?.value.trim()
+              if (aiToast.loading) return
+              if (!content) {
+                setOnboardingStep(4)
+                inputRef.current?.focus()
+                return
+              }
               setInputValue('')
-              handleInputSubmit(content)
+              if (onboardingStep === 4) void completeOnboarding()
+              void handleInputSubmit(content)
             }}
             disabled={aiToast.loading}
             title="请念念帮我看一眼（分类与润色由你确认）"
             aria-label="请念念帮我看一眼"
+            aria-describedby={aiHintActive ? 'onboarding-ai-tip' : undefined}
           >
             <NianNian size={24} />
           </button>

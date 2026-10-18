@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { db } from '../db'
-import NianNian from './NianNian'
 
 type ScreenState = 'brand' | 'login' | 'register'
 
@@ -97,38 +96,47 @@ export default function BrandScreen() {
   return (
     <div
       className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ backgroundColor: '#FAF7F2' }}
+      style={{ backgroundColor: '#FAF7F2', touchAction: 'manipulation' }}
+      role={screenState === 'brand' ? 'button' : undefined}
+      tabIndex={screenState === 'brand' ? 0 : undefined}
+      aria-label={screenState === 'brand' ? '进入信念，登录或注册' : undefined}
+      onClick={screenState === 'brand' ? handleBrandClick : undefined}
+      onKeyDown={screenState === 'brand' ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          handleBrandClick()
+        }
+      } : undefined}
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="wait">
         {/* ====== 品牌页 ====== */}
         {screenState === 'brand' && (
           <motion.div
             key="brand"
-            className="flex flex-col items-center max-w-md px-8 text-center"
+            className="flex flex-col items-center pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: reduceMotion ? 0 : -12 }}
-            transition={{ duration: reduceMotion ? 0 : 0.28, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: reduceMotion ? 0 : -30 }}
+            transition={{ duration: reduceMotion ? 0 : 1.2, ease: 'easeOut' }}
           >
-            <NianNian size={46} className="mb-7" />
             <motion.h1
               className="font-serif text-4xl md:text-6xl tracking-widest"
               style={{ color: '#5C4A3A' }}
-              initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.97 }}
+              initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: reduceMotion ? 0 : 0.45, ease: 'easeOut' }}
+              transition={{ duration: reduceMotion ? 0 : 1.5, ease: 'easeOut' }}
             >
               信念
             </motion.h1>
             <motion.p
-              className="mt-5 text-sm leading-7"
-              style={{ color: '#746A61' }}
+              className="mt-6 text-sm tracking-wider"
+              style={{ color: '#9C9088' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: reduceMotion ? 0 : 0.8, duration: reduceMotion ? 0 : 1.2 }}
             >
-              写下念头，慢慢看见它们之间的联系。
+              点击任意位置进入
             </motion.p>
-            <button type="button" className="btn-soft mt-8 min-h-11 min-w-36" onClick={handleBrandClick}>
-              登录或注册
-            </button>
           </motion.div>
         )}
 
@@ -140,7 +148,7 @@ export default function BrandScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: reduceMotion ? 0 : 0.24 }}
+            transition={{ duration: reduceMotion ? 0 : 0.4 }}
           >
             <motion.h1
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
@@ -154,7 +162,7 @@ export default function BrandScreen() {
               onSubmit={handleLogin}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.28 }}
+              transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.6 }}
             >
               <label className="block text-sm text-[#746A61]">
                 账号名
@@ -212,7 +220,7 @@ export default function BrandScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, x: 30 }}
-            transition={{ duration: reduceMotion ? 0 : 0.24 }}
+            transition={{ duration: reduceMotion ? 0 : 0.4 }}
           >
             <motion.h1
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
@@ -226,7 +234,7 @@ export default function BrandScreen() {
               onSubmit={handleRegister}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.28 }}
+              transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.6 }}
             >
               <label className="block text-sm text-[#746A61]">
                 账号名
