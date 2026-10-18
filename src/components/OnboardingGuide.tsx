@@ -8,14 +8,13 @@ interface Props {
   onStart: () => void
   onNext: () => void
   onShowAI: () => void
-  onFocusInput: () => void
   onSkip: () => void
   onFinish: () => void
   onOpenManual: () => void
 }
 
 /** A short, optional first-use guide that leaves the canvas and input usable. */
-export default function OnboardingGuide({ step, hasFirstNode, canConnect, onStart, onNext, onShowAI, onFocusInput, onSkip, onFinish, onOpenManual }: Props) {
+export default function OnboardingGuide({ step, hasFirstNode, canConnect, onStart, onNext, onShowAI, onSkip, onFinish, onOpenManual }: Props) {
   const startRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -41,9 +40,10 @@ export default function OnboardingGuide({ step, hasFirstNode, canConnect, onStar
               {step === 3 && (canConnect
                 ? '点开圆点可以查看和修改。两个念头有关系时，可拖近松手建立「待厘清」连线；也可用节点的连接按钮选择关系。连线不会替你判断因果。'
                 : '点开圆点可以查看和修改。等有了更多念头，再慢慢整理它们之间的关系。')}
-              {step === 4 && <span id="onboarding-ai-tip">先在下方写一句，再点输入框左侧的念念头像。原话会留在建议卡中；你可采纳分类和表达建议、只用分类，或保留原话。按 Enter 则直接记录，不调用 AI。</span>}
+              {step === 4 && <span id="onboarding-ai-tip">先在下方输入一句自己的话，再点输入框左侧的念念头像。念念会尝试建议类型与领域；原话确实需要说清楚时才会建议改写。是否采纳由你决定。</span>}
             </p>
             {step === 1 && <p className="mt-2 text-xs leading-5 text-[#8C8075]">目前记录保存在此设备的浏览器中，可在设置里导出备份。</p>}
+            {step === 4 && <p className="mt-2 text-xs leading-5 text-[#8C8075]">例如：「我总觉得自己做得不够好」。按 Enter 会原样记录；点念念头像会先显示建议。</p>}
           </div>
           <button type="button" className="-mr-2 -mt-2 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[#746A61] transition-colors hover:bg-[#F3E9DB]" aria-label="跳过新手引导" title="跳过引导" onClick={onSkip}>✕</button>
         </div>
@@ -52,7 +52,6 @@ export default function OnboardingGuide({ step, hasFirstNode, canConnect, onStar
           {step === 2 && <button type="button" className="text-sm text-[#746A61] underline underline-offset-4 hover:text-[#5C4A3A]" onClick={onNext}>先看看下一步</button>}
           {step === 3 && <button type="button" className="btn-soft min-h-10" onClick={onShowAI}>认识念念</button>}
           {step === 4 && <>
-            <button type="button" className="text-sm text-[#746A61] underline underline-offset-4 hover:text-[#5C4A3A]" onClick={onFocusInput}>写一句试试</button>
             <button type="button" className="text-sm text-[#746A61] underline underline-offset-4 hover:text-[#5C4A3A]" onClick={onOpenManual}>打开使用手册</button>
             <button type="button" className="btn-soft min-h-10" onClick={onFinish}>完成引导</button>
           </>}

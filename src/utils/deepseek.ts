@@ -18,6 +18,12 @@ export interface ClassifyResult {
   gentleInsight: string
 }
 
+/** Ignore empty and cosmetic changes so a suggestion does not repeat the user's words. */
+export function hasMeaningfulPolish(original: string, suggested: string): boolean {
+  const normalize = (value: string) => value.replace(/[\s\p{P}]+/gu, '').toLocaleLowerCase()
+  return suggested.trim().length > 0 && normalize(original) !== normalize(suggested)
+}
+
 export interface TraceResult {
   coreBeliefName: string
   possibleCoreBelief: string
@@ -265,7 +271,7 @@ async function deepseekChatText(
 
 // ====== System Prompts ======
 
-const CLASSIFY_SYSTEM = `你是一个温柔的内在觉察助手，名叫"信念"。
+const CLASSIFY_SYSTEM = `你是一个温柔的内在觉察助手，名叫"念念"。
 
 用户在一个留白界面上随手写下念头。你需要帮ta理解这个念头可能属于哪一类信念结构，以及属于哪个生活领域。
 
@@ -293,13 +299,13 @@ const CLASSIFY_SYSTEM = `你是一个温柔的内在觉察助手，名叫"信念
 只返回 JSON（不要 markdown）：
 {
   "type": "上面列出的类型之一",
-  "polishedContent": "润色后的表述，更清晰简洁，保持原意",
+  "polishedContent": "只有原话确实不清楚时才给出更清晰且不改变原意的写法；无需改写时逐字返回 userInput",
   "category": "上面列出的领域之一",
   "relatedNodeIds": ["已有节点ID，最多3个，不匹配则空数组"],
-  "gentleInsight": "一句温柔觉察，以'也许'或'或许'开头，不超30字"
+  "gentleInsight": "确有帮助时才写一句温柔觉察，不超30字；没有依据时返回空字符串"
 }
 
-原则：用"可能""也许""或许"；不诊断、不给心理建议；输入模糊时返回 type:"seed"；润色只优化表达不变原意；category 选择最贴近的一个。`
+原则：用"可能""也许""或许"；不诊断、不给心理建议；输入模糊时返回 type:"seed"。不要为了显得做了事而加标点、套话或改变语气；问候、称呼和本来清楚的短句原样返回。像"你好"这样没有信念信息的输入，type 返回"seed"、category 和 gentleInsight 返回空字符串。category 只在有明确依据时选择最贴近的一个。`
 
 const TRACE_SYSTEM = `你是一个温柔的信念探索助手，名叫"信念"。你的任务是帮助用户挖掘和确认他们内心最深层的信念结构。
 
@@ -423,7 +429,9 @@ export async function classifyInput(
 
   return {
     type,
-    polishedContent: String(raw.polishedContent ?? content),
+    polishedContent: typeof raw.polishedContent === 'string' && hasMeaningfulPolish(content, raw.polishedContent)
+      ? raw.polishedContent.trim()
+      : content,
     category: validateCategory(raw.category),
     relatedNodeIds: Array.isArray(raw.relatedNodeIds)
       ? raw.relatedNodeIds.filter((id: unknown) => typeof id === 'string')

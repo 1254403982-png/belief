@@ -258,17 +258,17 @@ function CanvasGuide() {
 function NodeGuide() {
   return (
     <div className="space-y-4">
-      <p className="text-sm font-medium" style={{ color: '#4A4036' }}>选中节点后的详情面板</p>
+      <p className="text-sm leading-6" style={{ color: '#746A61' }}>点开画布上的圆点，就能整理这句话。以下选择都可以以后再做。</p>
 
-      <GuideItem action="内容编辑" result="点击编辑按钮修改节点文字" />
-      <GuideItem action="类型切换" result="给这条记录选择合适的层次；不确定时可以先留在「未分类」。" />
-      <GuideItem action="领域分类" result="9 个预设领域 + 自定义分类（学习/工作/金钱/感情等）" />
-      <GuideItem action="态度标记" result="破除 / 坚定 / 观察 —— 标记你对这个信念的态度" />
-      <GuideItem action="用户笔记" result="自由记录对这个信念的补充思考" />
-      <GuideItem action="长期信念" result="标记后在「待坚定」列表中显示" />
-      <GuideItem action="待清理" result="标记后在「待破除」列表中显示，并触发每周梳理提醒" />
-      <GuideItem action="释怀" result="播放轻柔的消散动画后进入垃圾箱，7 天内可以恢复。" />
-      <GuideItem action="删除" result="软删除，进入垃圾箱，7 天后自动清理" />
+      <GuideItem action="内容与来源" result="点「修改」可编辑文字。如果这句话来自一次探索，还能点「回看这句话来自哪次探索」找回当时的思路。" />
+      <GuideItem action="类型" result="区分这句话是核心信念、想法、情绪还是行为等层次；拿不准就留在「未分类」。" />
+      <GuideItem action="态度标记" result="「破除、坚定、观察」表示你现在想怎样对待它。再次点已选的态度即可取消。" />
+      <GuideItem action="领域" result="记录它涉及生活的哪一方面，如学习、工作、感情；也可自定义。领域和信念层次是两回事。" />
+      <GuideItem action="已连接" result="查看相连的句子、关系类型和方向。点列表右侧的 × 会直接断开这条连线；想修改关系类型，可以点画布上的连线。" />
+      <GuideItem action="念念陪你想" result="「和念念继续思考」会打开探索；「请念念问一个问题」只提出一个问题，不会替你修改或删除连线。" />
+      <GuideItem action="笔记" result="记下补充想法，不会改动上方的原句。" />
+      <GuideItem action="长期信念 / 待清理" result="分别放入月度盘点与每周清理，也会出现在总览的「待坚定 / 待破除」中。提醒需在设置里开启。再次点击可取消标记。" />
+      <GuideItem action="释怀 / 删除" result="释怀会播放消散动画；删除会直接移出画布。两者都会进入垃圾箱，7 天内可恢复。" />
 
       <div className="pt-2">
         <p className="text-sm font-medium mb-2" style={{ color: '#4A4036' }}>连线类型</p>
@@ -321,7 +321,7 @@ function InputGuide() {
         <div>
           <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><NianNian size={20} />请念念帮忙</p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#9C9088' }}>
-            点击输入框左侧的念念头像，可以看看分类和表达建议。是否采纳由你决定，也能保留自己的原话。
+            点击输入框左侧的念念头像，可以看看类型和领域建议。只有原话确实需要澄清时，才会显示改写；是否采纳由你决定。
           </p>
         </div>
         <div className="border-t" style={{ borderColor: 'rgba(200, 169, 110, 0.12)' }} />
@@ -355,8 +355,8 @@ function AIGuide() {
       <div>
         <p className="text-sm font-medium flex items-center gap-2" style={{ color: '#4A4036' }}><NianNian size={20} />念念帮你分类</p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
-          在底部写下念头，再点左侧的念念头像。念念会给出信念类型、表达和领域的建议。
-          结果以浮层卡片展示，可选择「采纳建议」「仅分类」或「保留原样」。
+          在底部写下念头，再点左侧的念念头像。念念会建议类型和领域；只有原话确实不清楚时，才会给出不改变原意的改写。
+          结果以浮层卡片展示，你可以采纳建议、仅用分类，或保留自己的原话。
         </p>
         <p className="text-xs leading-relaxed mt-1" style={{ color: '#9C9088' }}>
           AI 暂时无法回应时，原始输入仍在建议卡片中；点击「保留原文」即可将它加入画布。

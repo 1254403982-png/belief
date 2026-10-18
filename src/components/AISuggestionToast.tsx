@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import type { ClassifyResult } from '../utils/deepseek'
+import { hasMeaningfulPolish, type ClassifyResult } from '../utils/deepseek'
 import { getNodeColor, getTypeLabel, getCategoryLabel, getCategoryEmoji } from './utils'
 import NianNian from './NianNian'
 
@@ -30,6 +30,9 @@ export default function AISuggestionToast({
   onKeepOriginal,
   onDismiss,
 }: Props) {
+  const hasPolish = result ? hasMeaningfulPolish(originalText, result.polishedContent) : false
+  const hasClassification = Boolean(result && (result.type !== 'seed' || result.category))
+
   return (
     <AnimatePresence>
       {visible && (
@@ -137,28 +140,26 @@ export default function AISuggestionToast({
               {/* 结果态 */}
               {result && !loading && (
                 <div className="space-y-4">
-                  {/* 原文 → 润色版 */}
+                  {/* 只有表达确实变化时，才展示原文与改写对照。 */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(200, 169, 110, 0.08)', color: '#9C9088' }}>
                         原文
                       </span>
-                      <p className="text-sm line-through" style={{ color: '#C4B8B0' }}>
+                      <p className="text-sm" style={{ color: '#4A4036' }}>
                         {originalText.length > 40 ? originalText.slice(0, 40) + '...' : originalText}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(160, 200, 176, 0.15)', color: '#5A7A68' }}>
-                        润色
-                      </span>
-                      <p className="text-sm font-medium" style={{ color: '#4A4036' }}>
-                        {result.polishedContent}
-                      </p>
-                    </div>
+                    {hasPolish ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(160, 200, 176, 0.15)', color: '#5A7A68' }}>建议表达</span>
+                        <p className="text-sm font-medium" style={{ color: '#4A4036' }}>{result.polishedContent}</p>
+                      </div>
+                    ) : <p className="text-xs text-[#7A7670]">这句话无需润色，保留你的表达。</p>}
                   </div>
 
                   {/* 类型建议 */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {hasClassification && <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs" style={{ color: '#9C9088' }}>建议分类</span>
                     <span
                       className="text-xs px-2.5 py-0.5 rounded-full"
@@ -182,7 +183,7 @@ export default function AISuggestionToast({
                         {getCategoryEmoji(result.category)} {getCategoryLabel(result.category)}
                       </span>
                     )}
-                  </div>
+                  </div>}
 
                   {/* 温柔洞察 */}
                   {result.gentleInsight && (
@@ -199,8 +200,8 @@ export default function AISuggestionToast({
                   )}
 
                   {/* 操作按钮 */}
-                  <div className="flex gap-2 pt-1">
-                    <button
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {(hasPolish || hasClassification) && <button
                       className="flex-1 text-sm px-3 py-2 rounded-full transition-all duration-200 hover:opacity-80"
                       style={{
                         backgroundColor: 'rgba(200, 169, 110, 0.18)',
@@ -209,9 +210,9 @@ export default function AISuggestionToast({
                       }}
                       onClick={onAcceptAll}
                     >
-                      采纳建议
-                    </button>
-                    <button
+                      {hasPolish ? '采纳建议' : result.type !== 'seed' && result.category ? '采纳分类与领域' : result.type !== 'seed' ? '采纳分类' : '采纳领域'}
+                    </button>}
+                    {result.type !== 'seed' && (hasPolish || result.category) && <button
                       className="text-sm px-3 py-2 rounded-full transition-all duration-200 hover:opacity-80"
                       style={{
                         backgroundColor: 'rgba(200, 169, 110, 0.08)',
@@ -221,13 +222,13 @@ export default function AISuggestionToast({
                       onClick={onAcceptTypeOnly}
                     >
                       仅分类
-                    </button>
+                    </button>}
                     <button
-                      className="text-sm px-3 py-2 transition-all duration-200 hover:opacity-70"
-                      style={{ color: '#9C9088' }}
+                      className="text-sm px-3 py-2 rounded-full transition-all duration-200 hover:opacity-70"
+                      style={{ color: hasPolish || hasClassification ? '#9C9088' : '#5C4A3A' }}
                       onClick={onKeepOriginal}
                     >
-                      保留原样
+                      {hasPolish || hasClassification ? '保留原样' : '按原样记录'}
                     </button>
                   </div>
                 </div>

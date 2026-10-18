@@ -15,7 +15,7 @@ import NianNian from './NianNian'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
 import OnboardingGuide from './OnboardingGuide'
-import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
+import { classifyInput, describeAIRequestFailure, hasMeaningfulPolish, type ClassifyResult } from '../utils/deepseek'
 
 import {
   getNodeColor,
@@ -540,7 +540,7 @@ export default function BeliefCanvas() {
       id: crypto.randomUUID(),
       userId,
       type: result.type,
-      content: result.polishedContent || originalText,
+      content: hasMeaningfulPolish(originalText, result.polishedContent) ? result.polishedContent : originalText,
       category: result.category,
       position: {
         x: (Math.random() - 0.5) * 400,
@@ -1801,7 +1801,6 @@ export default function BeliefCanvas() {
         onStart={() => { setOnboardingStep(2); inputRef.current?.focus() }}
         onNext={() => setOnboardingStep(3)}
         onShowAI={() => setOnboardingStep(4)}
-        onFocusInput={() => inputRef.current?.focus()}
         onSkip={() => void completeOnboarding()}
         onFinish={() => void completeOnboarding()}
         onOpenManual={() => { void completeOnboarding(); setManualOpen(true) }}

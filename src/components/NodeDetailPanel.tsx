@@ -31,11 +31,27 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
   const [noteText, setNoteText] = useState('')
   const [editingContent, setEditingContent] = useState(false)
   const [contentText, setContentText] = useState('')
+  const [guideOpen, setGuideOpen] = useState(() => {
+    try {
+      const userId = localStorage.getItem('currentUserId') || 'guest'
+      return localStorage.getItem(`node-detail-guide-v1:${userId}`) !== 'seen'
+    } catch {
+      return true
+    }
+  })
 
   if (!selectedNode) return null
 
   const currentTypeLabel = TYPE_OPTIONS.find(t => t.value === selectedNode.type)?.label || selectedNode.type
   const currentAttitude = selectedNode.attitude
+
+  const closeGuide = () => {
+    setGuideOpen(false)
+    try {
+      const userId = localStorage.getItem('currentUserId') || 'guest'
+      localStorage.setItem(`node-detail-guide-v1:${userId}`, 'seen')
+    } catch { /* The guide still closes when browser storage is unavailable. */ }
+  }
 
   const handleTypeChange = (type: BeliefNode['type']) => {
     store.updateNode(selectedNode.id, { type })
@@ -82,20 +98,34 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
               节点详情
             </h3>
-            <button
-              type="button"
-              aria-label="关闭节点详情"
-              title="关闭节点详情"
-              className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-base hover:bg-[#F3E9DB] transition-colors"
-              style={{ color: '#9C9088' }}
-              onClick={() => store.selectNode(null)}
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label="这张卡怎么用" aria-controls={guideOpen ? 'node-detail-guide' : undefined} aria-expanded={guideOpen}
+                title="这张卡怎么用" className="w-9 h-9 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
+                style={{ color: '#9C9088' }} onClick={() => guideOpen ? closeGuide() : setGuideOpen(true)}>?</button>
+              <button
+                type="button"
+                aria-label="关闭节点详情"
+                title="关闭节点详情"
+                className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-base hover:bg-[#F3E9DB] transition-colors"
+                style={{ color: '#9C9088' }}
+                onClick={() => store.selectNode(null)}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* 内容区 */}
           <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
+            {guideOpen && <section id="node-detail-guide" aria-label="节点详情使用说明" className="rounded-xl border border-[#E9DFD1] bg-[#FAF7F2] p-3 text-xs leading-5 text-[#746A61]">
+              <p className="font-medium text-sm text-[#5C4A3A]">这张卡，慢慢整理就好</p>
+              <ul className="mt-2 space-y-1.5">
+                <li><strong className="text-[#5C4A3A]">文字与类型：</strong>修改原话；类型是它在信念层次中的位置，不确定就留在「未分类」。</li>
+                <li><strong className="text-[#5C4A3A]">态度与领域：</strong>态度是你现在想怎样对待它，领域是它涉及的生活方面；两者可分别选，已选项可取消。</li>
+                <li><strong className="text-[#5C4A3A]">继续探索：</strong>往下可看连接、请念念提问、写笔记，或把它标记为日后回顾的内容。</li>
+              </ul>
+              <button type="button" className="mt-2 min-h-8 text-[#8B6B3A] underline underline-offset-4" onClick={closeGuide}>知道了</button>
+            </section>}
             {/* 节点文字 */}
             <section>
               <div className="flex items-center justify-between mb-1.5">

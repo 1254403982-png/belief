@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { test, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { create, act } from 'react-test-renderer'
 import { db } from '../src/db'
 import { continueFromJournal, listExplorations, retainExplorationCandidate, saveExploration } from '../src/db/explorations'
@@ -9,6 +10,8 @@ import { appendThought, newExploration, normalizeExploration, parseExplorationQu
 import { readExplorationRecovery, storeExplorationRecovery } from '../src/utils/explorationRecovery'
 import ExplorationPanel from '../src/components/ExplorationPanel'
 import DailyActionPanel from '../src/components/DailyActionPanel'
+import AISuggestionToast from '../src/components/AISuggestionToast'
+import { classifyInput, type ClassifyResult } from '../src/utils/deepseek'
 
 const memory = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -278,4 +281,46 @@ test('整理保留历史版本，退出重开后用户改写仍在，原候选�
   assert.equal(session.summaries![0].candidates[0].content, '原始候选')
   assert.equal(session.summaries![0].candidates[0].userContent, '我的改写')
   assert.equal(session.history[0].content, '这是我的原话')
+})
+
+test('念念无需改写时保留原话，空白润色也不能变成空节点', async () => {
+  reply = async () => ({ type: 'seed', polishedContent: '   ', category: '', relatedNodeIds: [], gentleInsight: '' })
+  const unchanged = await classifyInput('你好', [])
+  assert.equal(unchanged?.polishedContent, '你好')
+  assert.equal(unchanged?.type, 'seed')
+
+  reply = async () => ({ type: 'seed', polishedContent: '你好。', category: '', relatedNodeIds: [], gentleInsight: '' })
+  const punctuationOnly = await classifyInput('你好', [])
+  assert.equal(punctuationOnly?.polishedContent, '你好')
+
+  reply = async () => ({ type: 'thought', polishedContent: '我担心自己做得不够好', category: 'self', relatedNodeIds: [], gentleInsight: '' })
+  const revised = await classifyInput('我怕做不好', [])
+  assert.equal(revised?.polishedContent, '我担心自己做得不够好')
+})
+
+test('建议卡片只在确有改写时展示表达建议，未分类短句按原样记录', () => {
+  const renderSuggestion = (originalText: string, polishedContent: string, type: ClassifyResult['type'] = 'seed') => {
+    const result: ClassifyResult = {
+      type, polishedContent, category: type === 'seed' ? undefined : 'self', relatedNodeIds: [], gentleInsight: '',
+    }
+    return renderToStaticMarkup(
+      <AISuggestionToast
+        visible loading={false} error={false} originalText={originalText} result={result}
+        onAcceptAll={() => {}} onAcceptTypeOnly={() => {}} onKeepOriginal={() => {}} onDismiss={() => {}}
+      />,
+    )
+  }
+
+  const unchanged = renderSuggestion('你好', '你好')
+  assert.match(unchanged, /按原样记录/)
+  assert.doesNotMatch(unchanged, /建议分类|>建议表达</)
+
+  const classified = renderSuggestion('我害怕失败', '我害怕失败', 'thought')
+  assert.match(classified, /建议分类/)
+  assert.doesNotMatch(classified, />建议表达</)
+
+  const revised = renderSuggestion('我怕做不好', '我担心自己做得不够好', 'thought')
+  assert.match(revised, /我怕做不好/)
+  assert.match(revised, /我担心自己做得不够好/)
+  assert.match(revised, />建议表达</)
 })
