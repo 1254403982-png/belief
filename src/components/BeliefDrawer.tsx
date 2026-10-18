@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { usePanelFocus } from './usePanelFocus'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db, type BeliefNode, CATEGORIES } from '../db'
 import { CATEGORY_CONFIG, hexToRgba, getTypeLabel } from './utils'
@@ -22,6 +23,7 @@ export default function BeliefDrawer({
   onClose: () => void
 }) {
   const store = useBeliefStore()
+  const { panelRef, onPanelKeyDown } = usePanelFocus(open, onClose)
   const [activeTab, setActiveTab] = useState<Tab>('tree')
 
   const handleFocusNode = (nodeId: string) => {
@@ -86,6 +88,12 @@ export default function BeliefDrawer({
           />
 
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="overview-title"
+            tabIndex={-1}
+            onKeyDown={onPanelKeyDown}
             className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
             initial={{ x: 320 }}
             animate={{ x: 0 }}
@@ -94,12 +102,13 @@ export default function BeliefDrawer({
           >
             {/* 头部 */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
-              <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
+              <h3 id="overview-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
                 信念总览
               </h3>
               <button
                 type="button"
                 aria-label="关闭信念总览"
+                data-panel-close
                 className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
                 onClick={onClose}

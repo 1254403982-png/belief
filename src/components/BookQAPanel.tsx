@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { usePanelFocus } from './usePanelFocus'
 import type { BookData, SearchResult } from '../data/books/types'
 import type { BookChatMessage } from '../db'
 import BookAnswer from './BookAnswer'
@@ -163,6 +164,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
     setIncludeBeliefs(false)
     onClose()
   }
+  const { panelRef, onPanelKeyDown } = usePanelFocus(open, handleClose)
 
   return (
     <AnimatePresence>
@@ -179,6 +181,12 @@ export default function BookQAPanel({ open, onClose }: Props) {
 
           {/* 面板 */}
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="book-qa-title"
+            tabIndex={-1}
+            onKeyDown={onPanelKeyDown}
             className="relative w-full max-w-lg mx-6 rounded-2xl overflow-hidden flex flex-col"
             style={{
               backgroundColor: 'rgba(255, 251, 245, 0.97)',
@@ -194,7 +202,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3 flex-shrink-0">
-              <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
+              <h3 id="book-qa-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
                 {selectedBook ? `📖 ${selectedBook.meta.title}` : '📚 书本问答'}
               </h3>
               <div className="flex items-center gap-2">
@@ -210,6 +218,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                 <button
                   type="button"
                   aria-label="关闭书本问答"
+                  data-panel-close
                   className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                   style={{ color: '#9C9088' }}
                   onClick={handleClose}

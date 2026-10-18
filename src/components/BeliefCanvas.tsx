@@ -14,6 +14,7 @@ import ToolbarIcon from './ToolbarIcon'
 import NianNian from './NianNian'
 import DailyActionPanel from './DailyActionPanel'
 import UserManualPanel from './UserManualPanel'
+import OnboardingGuide from './OnboardingGuide'
 import { classifyInput, describeAIRequestFailure, type ClassifyResult } from '../utils/deepseek'
 
 import {
@@ -44,7 +45,6 @@ function screenToWorld(
     y: (sy - canvasH / 2 - offsetY) / scale,
   }
 }
-
 // ====== 命中检测 ======
 function hitTest(
   worldX: number, worldY: number,
@@ -183,6 +183,7 @@ function ContextMenu({
 export default function BeliefCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const store = useBeliefStore()
 
@@ -200,7 +201,8 @@ export default function BeliefCanvas() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [explorationSessionId, setExplorationSessionId] = useState<string | undefined>()
   const [explorationSourceNodeId, setExplorationSourceNodeId] = useState<string | undefined>()
-  const [onboardingStep, setOnboardingStep] = useState(0) // 0=未开始, 1-5=引导步骤
+  const [onboardingStep, setOnboardingStep] = useState(0) // 0=关闭，1-3=按需引导
+  const guideStartNodeIdsRef = useRef<Set<string>>(new Set())
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [dailyPanelOpen, setDailyPanelOpen] = useState(false)
   const [dailyTaskCount, setDailyTaskCount] = useState(0)
@@ -229,6 +231,14 @@ export default function BeliefCanvas() {
   // 力导向布局
   const forceVelocitiesRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   const [forceEnabled, setForceEnabled] = useState(false)
+
+  useEffect(() => {
+    if (onboardingStep > 0 && onboardingStep < 3 && store.nodes.some(node => !guideStartNodeIdsRef.current.has(node.id))) {
+      setOnboardingStep(3)
+      const userId = localStorage.getItem('currentUserId')
+      if (userId) void db.userAccounts.update(userId, { hasCompletedOnboarding: true })
+    }
+  }, [onboardingStep, store.nodes])
   const forceEnabledRef = useRef(false)
   const draggingNodeRef = useRef(false)
   useEffect(() => { forceEnabledRef.current = forceEnabled }, [forceEnabled])
@@ -347,6 +357,7 @@ export default function BeliefCanvas() {
     // 新手引导检查
     const user = await db.userAccounts.get(userId)
     if (user && !user.hasCompletedOnboarding && nodes.length === 0) {
+      guideStartNodeIdsRef.current = new Set(nodes.map(node => node.id))
       setOnboardingStep(1)
     }
 
@@ -402,6 +413,13 @@ export default function BeliefCanvas() {
     if (userId) {
       await db.userAccounts.update(userId, { hasCompletedOnboarding: true })
     }
+  }
+
+  const restartOnboarding = () => {
+    guideStartNodeIdsRef.current = new Set(store.nodes.map(node => node.id))
+    setManualOpen(false)
+    setSettingsOpen(false)
+    setOnboardingStep(1)
   }
 
   const getUserId = () => localStorage.getItem('currentUserId') || ''
@@ -1361,6 +1379,20 @@ export default function BeliefCanvas() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       lastActivityRef.current = Date.now()
+      const target = e.target instanceof HTMLElement ? e.target : null
+      const hasBlockingPanel = drawerOpen || settingsOpen || manualOpen || bookQAOpen || dailyPanelOpen || deepInsightOpen || reviewOpen || !!pendingLink || !!contextMenu || !!edgePopup || aiToast.visible
+      const hasOverlay = hasBlockingPanel || onboardingStep > 0
+      // Editing text and using a panel must never delete a graph item behind it.
+      if (e.key === 'Delete' && (hasOverlay || target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="dialog"]'))) return
+      if (e.key === 'Escape' && pendingLink) { setPendingLink(null); return }
+      if (e.key === 'Escape' && contextMenu) { setContextMenu(null); return }
+      if (e.key === 'Escape' && hasBlockingPanel) return
+      if (e.key === 'Escape' && onboardingStep > 0 && !store.selectedNodeId && !editingNodeId) {
+        setOnboardingStep(0)
+        const userId = localStorage.getItem('currentUserId')
+        if (userId) void db.userAccounts.update(userId, { hasCompletedOnboarding: true })
+        return
+      }
       if (editingNodeId) {
         if (e.key === 'Enter') saveEdit()
         if (e.key === 'Escape') {
@@ -1389,10 +1421,11 @@ export default function BeliefCanvas() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [editingNodeId, store.selectedNodeId, selectedEdgeId])
+  }, [editingNodeId, store.selectedNodeId, selectedEdgeId, drawerOpen, settingsOpen, manualOpen, bookQAOpen, dailyPanelOpen, deepInsightOpen, reviewOpen, pendingLink, contextMenu, edgePopup, aiToast.visible, onboardingStep, saveEdit])
 
   // ====== UI 渲染 ======
   const selectedNode = store.nodes.find(n => n.id === store.selectedNodeId)
+  const topPanelOpen = drawerOpen || settingsOpen || manualOpen || bookQAOpen || dailyPanelOpen || deepInsightOpen || reviewOpen
 
   return (
     <div
@@ -1452,7 +1485,7 @@ export default function BeliefCanvas() {
       )}
 
       {/* 顶部栏 */}
-      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-3 sm:px-6 py-3 pointer-events-none z-30`}>
+      <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-3 sm:px-6 py-3 pointer-events-none ${topPanelOpen ? 'z-10' : 'z-30'}`}>
         <button
           type="button"
           aria-label="将画布视角归位"
@@ -1527,7 +1560,7 @@ export default function BeliefCanvas() {
       {/* 选中节点信息条 */}
       {selectedNode && !editingNodeId && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 md:left-0 md:right-80 md:translate-x-0 md:mx-auto z-30 w-max max-w-[calc(100%-2rem)] md:max-w-[calc(100%-22rem)] px-5 py-2.5 rounded-full flex items-center gap-3"
+          className={`absolute left-1/2 -translate-x-1/2 md:left-0 md:right-80 md:translate-x-0 md:mx-auto ${topPanelOpen ? 'z-10' : 'z-30'} w-max max-w-[calc(100%-2rem)] md:max-w-[calc(100%-22rem)] px-5 py-2.5 rounded-full flex items-center gap-3`}
           style={{
             top: 76,
             backgroundColor: 'rgba(255, 251, 245, 0.9)',
@@ -1730,7 +1763,7 @@ export default function BeliefCanvas() {
       />
 
       {/* 使用手册 */}
-      <UserManualPanel open={manualOpen} onClose={() => setManualOpen(false)} />
+      <UserManualPanel open={manualOpen} onClose={() => setManualOpen(false)} onRestartGuide={restartOnboarding} />
 
       {/* 同一个探索入口承接自由书写、节点探索和来源回看。 */}
       <ExplorationPanel open={deepInsightOpen} sessionId={explorationSessionId}
@@ -1759,96 +1792,16 @@ export default function BeliefCanvas() {
         onDismiss={handleDismissToast}
       />
 
-      {/* 新手引导浮层 */}
-      {onboardingStep > 0 && (
-        <div className="absolute inset-0 z-40 flex items-end justify-center pb-8 pointer-events-none">
-          <div
-            className="pointer-events-auto px-6 py-4 rounded-xl mx-6 max-w-sm w-full"
-            style={{
-              backgroundColor: 'rgba(255, 251, 245, 0.97)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid #E0D8CC',
-              boxShadow: '0 4px 32px rgba(74, 64, 54, 0.1)',
-            }}
-          >
-            {onboardingStep === 1 && (
-              <div className="text-center space-y-3">
-                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  在底部输入框写下你的第一个念头
-                  <br />
-                  <span style={{ color: '#9C9088' }}>按 Enter 保留原话，之后再慢慢整理</span>
-                </p>
-                <div className="flex justify-center gap-2">
-                  <StepDots current={1} total={5} />
-                </div>
-                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(2)}>
-                  知道了
-                </button>
-              </div>
-            )}
-            {onboardingStep === 2 && (
-              <div className="text-center space-y-3">
-                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  长按节点进入聚焦模式
-                  <br />
-                  <span style={{ color: '#9C9088' }}>整条信念链路会高亮显示</span>
-                </p>
-                <div className="flex justify-center gap-2">
-                  <StepDots current={2} total={5} />
-                </div>
-                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(3)}>
-                  继续
-                </button>
-              </div>
-            )}
-            {onboardingStep === 3 && (
-              <div className="text-center space-y-3">
-                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  拖动一条信念，看看相连节点如何跟随
-                  <br />
-                  <span style={{ color: '#9C9088' }}>拖到另一节点附近可先连成待厘清关系；连接按钮可选择关系类型</span>
-                </p>
-                <div className="flex justify-center gap-2">
-                  <StepDots current={3} total={5} />
-                </div>
-                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(4)}>
-                  继续
-                </button>
-              </div>
-            )}
-            {onboardingStep === 4 && (
-              <div className="text-center space-y-3">
-                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  点击右上角的探索图标
-                  <br />
-                  <span style={{ color: '#9C9088' }}>先自己写，需要时让念念问一个问题</span>
-                </p>
-                <div className="flex justify-center gap-2">
-                  <StepDots current={4} total={5} />
-                </div>
-                <button className="btn-soft text-xs" onClick={() => setOnboardingStep(5)}>
-                  继续
-                </button>
-              </div>
-            )}
-            {onboardingStep === 5 && (
-              <div className="text-center space-y-3">
-                <p className="text-sm leading-relaxed" style={{ color: '#4A4036' }}>
-                  随时点击右上角的问号图标查看使用手册
-                  <br />
-                  <span style={{ color: '#9C9088' }}>信念总览 · 书本问答 · 我的探索 · 自动布局 · 设置</span>
-                </p>
-                <div className="flex justify-center gap-2">
-                  <StepDots current={5} total={5} />
-                </div>
-                <button className="btn-soft text-xs" onClick={completeOnboarding}>
-                  开始探索 ✨
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <OnboardingGuide
+        step={drawerOpen || settingsOpen || manualOpen || bookQAOpen || dailyPanelOpen || deepInsightOpen || reviewOpen || !!pendingLink || !!contextMenu || !!edgePopup || !!store.selectedNodeId || aiToast.visible ? 0 : onboardingStep}
+        hasFirstNode={store.nodes.some(node => !guideStartNodeIdsRef.current.has(node.id))}
+        canConnect={store.nodes.length >= 2}
+        onStart={() => { setOnboardingStep(2); inputRef.current?.focus() }}
+        onNext={() => setOnboardingStep(3)}
+        onSkip={() => void completeOnboarding()}
+        onFinish={() => void completeOnboarding()}
+        onOpenManual={() => { void completeOnboarding(); setManualOpen(true) }}
+      />
 
       {/* 底部浮动输入框 */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md px-6 z-10">
@@ -1886,6 +1839,7 @@ export default function BeliefCanvas() {
               </div>
             )}
             <input
+              ref={inputRef}
               className="input-underline text-center w-full pr-12"
               type="text"
               aria-label="写下一个念头"
@@ -1981,25 +1935,6 @@ export default function BeliefCanvas() {
           </p>
         </div>
       )}
-    </div>
-  )
-}
-
-// 引导步骤指示器
-function StepDots({ current, total }: { current: number; total: number }) {
-  return (
-    <div className="flex gap-2">
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          className="inline-block rounded-full transition-all duration-300"
-          style={{
-            width: i + 1 === current ? 16 : 6,
-            height: 6,
-            backgroundColor: i + 1 === current ? '#C8A96E' : '#E0D8CC',
-          }}
-        />
-      ))}
     </div>
   )
 }

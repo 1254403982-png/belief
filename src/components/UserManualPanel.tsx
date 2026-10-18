@@ -2,10 +2,12 @@ import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ToolbarIcon from './ToolbarIcon'
 import NianNian from './NianNian'
+import { usePanelFocus } from './usePanelFocus'
 
 interface Props {
   open: boolean
   onClose: () => void
+  onRestartGuide?: () => void
 }
 
 // 章节定义
@@ -15,7 +17,8 @@ interface Section {
   content: React.ReactNode
 }
 
-export default function UserManualPanel({ open, onClose }: Props) {
+export default function UserManualPanel({ open, onClose, onRestartGuide }: Props) {
+  const { panelRef, onPanelKeyDown } = usePanelFocus(open, onClose)
   const [activeSection, setActiveSection] = useState('icons')
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -81,9 +84,12 @@ export default function UserManualPanel({ open, onClose }: Props) {
       />
 
       <motion.div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="manual-title"
+        tabIndex={-1}
+        onKeyDown={onPanelKeyDown}
         className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
         initial={{ x: 320 }}
         animate={{ x: 0 }}
@@ -102,6 +108,7 @@ export default function UserManualPanel({ open, onClose }: Props) {
           <button
             type="button"
             aria-label="关闭使用手册"
+            data-panel-close
             className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
             style={{ color: '#9C9088' }}
             onClick={onClose}
@@ -144,6 +151,9 @@ export default function UserManualPanel({ open, onClose }: Props) {
           <h4 className="font-serif text-base mb-3" style={{ color: '#5C4A3A' }}>{sections.find((s) => s.id === activeSection)?.title}</h4>
           {sections.find((s) => s.id === activeSection)?.content}
         </div>
+        {onRestartGuide && <div className="flex-shrink-0 border-t border-[#E9DFD1] px-5 py-2">
+          <button type="button" className="min-h-10 text-sm text-[#746A61] underline underline-offset-4 hover:text-[#5C4A3A]" onClick={onRestartGuide}>重新查看新手引导</button>
+        </div>}
       </motion.div>
     </AnimatePresence>
   )

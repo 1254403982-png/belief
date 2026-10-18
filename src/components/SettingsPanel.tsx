@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { usePanelFocus } from './usePanelFocus'
 import { db } from '../db'
 import { exportAsJSON, exportAsMarkdown } from '../utils/export'
 import ToolbarIcon from './ToolbarIcon'
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function SettingsPanel({ open, onClose, onManualReview, onOpenManual }: Props) {
+  const { panelRef, onPanelKeyDown } = usePanelFocus(open, onClose)
   const [username, setUsername] = useState('')
   const [nickname, setNickname] = useState('')
   const [editingNickname, setEditingNickname] = useState(false)
@@ -189,6 +191,12 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
           />
 
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
+            tabIndex={-1}
+            onKeyDown={onPanelKeyDown}
             className="drawer-panel fixed right-0 top-0 bottom-0 w-full md:w-80 z-30 flex flex-col"
             initial={{ x: 320 }}
             animate={{ x: 0 }}
@@ -197,12 +205,13 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
           >
             {/* 头部 */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
-              <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
+              <h3 id="settings-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
                 设置
               </h3>
               <button
                 type="button"
                 aria-label="关闭设置"
+                data-panel-close
                 className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
                 onClick={onClose}

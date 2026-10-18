@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { db } from '../db'
+import NianNian from './NianNian'
 
 type ScreenState = 'brand' | 'login' | 'register'
 
@@ -14,21 +15,7 @@ export default function BrandScreen() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // 阻止首页缩放
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const preventZoom = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault()
-      }
-    }
-    el.addEventListener('wheel', preventZoom, { passive: false })
-    return () => el.removeEventListener('wheel', preventZoom)
-  }, [])
+  const reduceMotion = useReducedMotion()
 
   const handleBrandClick = useCallback(() => {
     setScreenState('login')
@@ -109,40 +96,39 @@ export default function BrandScreen() {
 
   return (
     <div
-      ref={containerRef}
       className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden"
-      style={{ backgroundColor: '#FAF7F2', touchAction: 'manipulation' }}
-      onClick={screenState === 'brand' ? handleBrandClick : undefined}
+      style={{ backgroundColor: '#FAF7F2' }}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {/* ====== 品牌页 ====== */}
         {screenState === 'brand' && (
           <motion.div
             key="brand"
-            className="flex flex-col items-center pointer-events-none"
+            className="flex flex-col items-center max-w-md px-8 text-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 1.2, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: reduceMotion ? 0 : -12 }}
+            transition={{ duration: reduceMotion ? 0 : 0.28, ease: 'easeOut' }}
           >
+            <NianNian size={46} className="mb-7" />
             <motion.h1
               className="font-serif text-4xl md:text-6xl tracking-widest"
               style={{ color: '#5C4A3A' }}
-              initial={{ opacity: 0, scale: 0.92 }}
+              initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.5, ease: 'easeOut' }}
+              transition={{ duration: reduceMotion ? 0 : 0.45, ease: 'easeOut' }}
             >
               信念
             </motion.h1>
             <motion.p
-              className="mt-6 text-sm tracking-wider"
-              style={{ color: '#9C9088' }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8, duration: 1.2 }}
+              className="mt-5 text-sm leading-7"
+              style={{ color: '#746A61' }}
             >
-              点击任意位置进入
+              写下念头，慢慢看见它们之间的联系。
             </motion.p>
+            <button type="button" className="btn-soft mt-8 min-h-11 min-w-36" onClick={handleBrandClick}>
+              登录或注册
+            </button>
           </motion.div>
         )}
 
@@ -154,7 +140,7 @@ export default function BrandScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24 }}
           >
             <motion.h1
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
@@ -168,27 +154,23 @@ export default function BrandScreen() {
               onSubmit={handleLogin}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.6 }}
+              transition={{ duration: reduceMotion ? 0 : 0.28 }}
             >
-              <input
-                className="input-underline"
-                type="text"
-                placeholder="账号名"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoFocus
-              />
-              <input
-                className="input-underline"
-                type="password"
-                placeholder="密码"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <label className="block text-sm text-[#746A61]">
+                账号名
+                <input className="input-underline" type="text" name="username" autoComplete="username"
+                  placeholder="输入账号名" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+              </label>
+              <label className="block text-sm text-[#746A61]">
+                密码
+                <input className="input-underline" type="password" name="password" autoComplete="current-password"
+                  placeholder="输入密码" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </label>
 
               {error && (
                 <motion.p
                   className="text-sm text-center"
+                  role="alert"
                   style={{ color: '#C8A080' }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -230,7 +212,7 @@ export default function BrandScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, x: 30 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24 }}
           >
             <motion.h1
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
@@ -244,41 +226,33 @@ export default function BrandScreen() {
               onSubmit={handleRegister}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.6 }}
+              transition={{ duration: reduceMotion ? 0 : 0.28 }}
             >
-              <input
-                className="input-underline"
-                type="text"
-                placeholder="账号名（至少2个字符，用于登录）"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoFocus
-              />
-              <input
-                className="input-underline"
-                type="text"
-                placeholder="昵称（选填，显示在应用中）"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-              />
-              <input
-                className="input-underline"
-                type="password"
-                placeholder="密码（至少8个字符）"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <input
-                className="input-underline"
-                type="password"
-                placeholder="确认密码"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+              <label className="block text-sm text-[#746A61]">
+                账号名
+                <input className="input-underline" type="text" name="username" autoComplete="username"
+                  placeholder="至少 2 个字符" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+              </label>
+              <label className="block text-sm text-[#746A61]">
+                昵称 <span className="text-[#9C9088]">（选填）</span>
+                <input className="input-underline" type="text" name="nickname" autoComplete="nickname"
+                  placeholder="显示在应用中" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+              </label>
+              <label className="block text-sm text-[#746A61]">
+                密码
+                <input className="input-underline" type="password" name="new-password" autoComplete="new-password"
+                  placeholder="至少 8 个字符" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </label>
+              <label className="block text-sm text-[#746A61]">
+                确认密码
+                <input className="input-underline" type="password" name="confirm-password" autoComplete="new-password"
+                  placeholder="再次输入密码" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+              </label>
 
               {error && (
                 <motion.p
                   className="text-sm text-center"
+                  role="alert"
                   style={{ color: '#C8A080' }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
