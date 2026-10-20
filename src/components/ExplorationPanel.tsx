@@ -1,3 +1,4 @@
+import { getLanguage, tr } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { db, type BeliefNode, type ConversationSession, type ExplorationCandidate, type ThoughtJournal } from '../db'
 import { continueFromJournal, listExplorations, retainExplorationCandidate, saveExploration } from '../db/explorations'
@@ -270,41 +271,41 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
         <header className="px-6 pt-5 pb-4 border-b border-[#E0D8CC]">
           <div className="flex justify-between gap-4 items-center">
             <div>
-              <h2 id="exploration-title" className="font-serif text-xl text-[#5C4A3A] flex items-center gap-2"><NianNian size={30} /> 我的探索</h2>
-              <p className="text-xs text-[#7A7670] mt-1">先把自己的话写下来，不急着得出结论。</p>
+              <h2 id="exploration-title" className="font-serif text-xl text-[#5C4A3A] flex items-center gap-2"><NianNian size={30} /> {tr("我的探索")}</h2>
+              <p className="text-xs text-[#7A7670] mt-1">{tr("先把自己的话写下来，不急着得出结论。")}</p>
             </div>
-            <button className="btn-soft text-sm" disabled={busy === 'retain'} onClick={() => void close()}>今天到这里</button>
+            <button className="btn-soft text-sm" disabled={busy === 'retain'} onClick={() => void close()}>{tr("今天到这里")}</button>
           </div>
           <div className="flex items-center gap-3 mt-4">
-            <select aria-label="继续过去的探索" className="bg-transparent text-sm min-w-0 flex-1 border-b border-[#E0D8CC] py-2"
+            <select aria-label={tr("继续过去的探索")} className="bg-transparent text-sm min-w-0 flex-1 border-b border-[#E0D8CC] py-2"
               value={sessions.some(item => item.id === session?.id) ? session?.id : ''}
               disabled={loading || busy === 'retain'} onChange={event => void switchSession(event.target.value)}>
-              <option value="" disabled>新的探索</option>
-              {sessions.map(item => <option key={item.id} value={item.id}>{item.title} · {formatDate(item.updatedAt)}</option>)}
+              <option value="" disabled>{tr("新的探索")}</option>
+              {sessions.map(item => <option key={item.id} value={item.id}>{tr(item.title)} · {formatDate(item.updatedAt)}</option>)}
             </select>
-            <button className="text-sm text-[#5C4A3A] px-2 py-2" disabled={loading || busy === 'retain'} onClick={() => void switchSession('')}>另起一段</button>
+            <button className="text-sm text-[#5C4A3A] px-2 py-2" disabled={loading || busy === 'retain'} onClick={() => void switchSession('')}>{tr("另起一段")}</button>
           </div>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {loading && <p role="status" className="text-sm text-[#7A7670]">正在找回你的记录…</p>}
-          {!loading && session?.history.length === 0 && <p className="text-sm leading-7 text-[#7A7670]">可以从一件具体的事、一种感受，或一个尚未想明白的念头开始。先自己写也很好。</p>}
+          {loading && <p role="status" className="text-sm text-[#7A7670]">{tr("正在找回你的记录…")}</p>}
+          {!loading && session?.history.length === 0 && <p className="text-sm leading-7 text-[#7A7670]">{tr("可以从一件具体的事、一种感受，或一个尚未想明白的念头开始。先自己写也很好。")}</p>}
           {!loading && session?.history.map((message, index) => (
             <article key={message.id ?? index} className={message.role === 'user' ? 'space-y-2' : 'border-l-2 border-[#D8CCB7] pl-4'}>
-              <p className="text-xs text-[#7A7670] mb-1">{message.role === 'user' ? '我的思考' : message.kind === 'summary' ? '念念按你的请求整理 · 可保留不同意见' : message.kind === 'question' ? '念念问了一个问题' : '念念之前的回应 · 供回看'}</p>
+              <p className="text-xs text-[#7A7670] mb-1">{message.role === 'user' ? tr("我的思考") : message.kind === 'summary' ? tr("念念按你的请求整理 · 可保留不同意见") : message.kind === 'question' ? tr("念念问了一个问题") : tr("念念之前的回应 · 供回看")}</p>
               <p className={`whitespace-pre-wrap break-words leading-8 ${message.role === 'user' ? 'text-base text-[#4A4036]' : 'text-sm text-[#73675A]'}`}>{message.content}</p>
             </article>
           ))}
           {latestSummary && <section className="space-y-3 border-t border-[#E0D8CC] pt-4">
-            <h3 className="text-sm text-[#5C4A3A]">想留下哪句话，由你决定</h3>
-            <p className="text-xs text-[#7A7670]">可以改写、调整类型，也可以一条都不加入。原话和历次整理都会保留。</p>
-            {latestSummary.candidates.length === 0 && <p className="text-sm text-[#7A7670]">目前还不必形成信念节点，可以继续写。</p>}
+            <h3 className="text-sm text-[#5C4A3A]">{tr("想留下哪句话，由你决定")}</h3>
+            <p className="text-xs text-[#7A7670]">{tr("可以改写、调整类型，也可以一条都不加入。原话和历次整理都会保留。")}</p>
+            {latestSummary.candidates.length === 0 && <p className="text-sm text-[#7A7670]">{tr("目前还不必形成信念节点，可以继续写。")}</p>}
             {latestSummary.candidates.map(candidate => <CandidateCard key={candidate.id} candidate={candidate} disabled={!!busy}
               onEdit={(content, type) => editCandidate(latestSummary.id, candidate.id, content, type)}
               onRetain={(content, type) => void retain(latestSummary.id, candidate, content, type)} />)}
           </section>}
           {summaries.length > 1 && <details className="text-sm text-[#7A7670]">
-            <summary className="cursor-pointer py-2">查看以前的整理版本</summary>
+            <summary className="cursor-pointer py-2">{tr("查看以前的整理版本")}</summary>
             {summaries.slice(0, -1).map(summary => <div key={summary.id} className="my-4 space-y-3">
               <p className="text-xs">{new Date(summary.createdAt).toLocaleString('zh-CN')}</p>
               <p className="whitespace-pre-wrap">{summary.text}</p>
@@ -314,13 +315,13 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
             </div>)}
           </details>}
           {session?.lastResult != null && <details className="text-sm text-[#7A7670]">
-            <summary className="cursor-pointer py-2">旧版分析存档</summary>
-            <p className="text-xs my-2">保留迁移前的完整结果，不代表你已认可其中的判断。</p>
+            <summary className="cursor-pointer py-2">{tr("旧版分析存档")}</summary>
+            <p className="text-xs my-2">{tr("保留迁移前的完整结果，不代表你已认可其中的判断。")}</p>
             <LegacyArchive value={session.lastResult} />
           </details>}
           {legacyJournals.length > 0 && <details className="border-t border-[#E0D8CC] pt-4 text-sm text-[#7A7670]">
-            <summary className="cursor-pointer py-2">以前的深度思考笔记 · {legacyJournals.length} 篇</summary>
-            <p className="text-xs leading-6 mb-3">旧笔记保留原样。选择“从这篇继续探索”后，原文会进入一段可继续的探索，旧笔记仍在这里。</p>
+            <summary className="cursor-pointer py-2">{tr("以前的深度思考笔记 ·")} {legacyJournals.length} {tr("篇")}</summary>
+            <p className="text-xs leading-6 mb-3">{tr("旧笔记保留原样。选择“从这篇继续探索”后，原文会进入一段可继续的探索，旧笔记仍在这里。")}</p>
             <div className="space-y-4">
               {legacyJournals.map(journal => <article key={journal.id} className="rounded-xl border border-[#E0D8CC] bg-[#FFFBF5] p-4 space-y-2">
                 <h3 className="text-sm text-[#4A4036]">{journal.title}</h3>
@@ -328,7 +329,7 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
                 {journal.content && <p className="whitespace-pre-wrap break-words leading-7 text-sm text-[#5C4A3A]">{journal.content}</p>}
                 <button className="text-xs text-[#5C4A3A] underline py-1" disabled={!!busy || loading}
                   onClick={() => void openLegacyJournal(journal.id)}>
-                  {sessions.some(item => item.sourceJournalId === journal.id) ? '继续这篇的探索' : '从这篇继续探索'}
+                  {sessions.some(item => item.sourceJournalId === journal.id) ? tr("继续这篇的探索") : tr("从这篇继续探索")}
                 </button>
               </article>)}
             </div>
@@ -336,11 +337,11 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
         </div>
 
         <footer className="px-6 pt-3 pb-5 border-t border-[#E0D8CC] space-y-3">
-          {error && <p role="alert" className="text-sm text-[#9A573E]">{error}</p>}
+          {error && <p role="alert" className="text-sm text-[#9A573E]">{tr(error)}</p>}
           {availability && <p className="text-xs text-[#7A7670]">{availability}</p>}
-          <label htmlFor="exploration-draft" className="sr-only">继续写下我的思考</label>
+          <label htmlFor="exploration-draft" className="sr-only">{tr("继续写下我的思考")}</label>
           <textarea ref={inputRef} id="exploration-draft" value={session?.draft ?? ''} disabled={loading || !session || busy === 'retain'}
-            placeholder="我想接着写……" rows={4}
+            placeholder={tr("我想接着写……")} rows={4}
             className="w-full resize-y bg-[#FFFBF5] border border-[#DDD1C0] rounded-xl p-3 text-base leading-7 outline-none focus:ring-1 focus:ring-[#C8A96E]"
             onChange={event => { if (sessionRef.current) void commit({ ...sessionRef.current, draft: event.target.value }).catch(() => {}) }}
             onKeyDown={event => {
@@ -351,17 +352,17 @@ export default function ExplorationPanel({ open, onClose, sessionId, sourceNodeI
             }} />
           <div className="flex flex-wrap gap-3 items-center">
             <button className="btn-soft text-sm disabled:opacity-40" disabled={!session?.draft?.trim() || !!busy || loading}
-              onClick={() => void saveThought().catch(() => {})}>记下这段</button>
+              onClick={() => void saveThought().catch(() => {})}>{tr("记下这段")}</button>
             <button className="text-sm text-[#5C4A3A] py-2 disabled:opacity-40" disabled={!hasThoughts || !!busy || loading}
-              onClick={() => void runAI('question')}>问我一个问题</button>
+              onClick={() => void runAI('question')}>{tr("问我一个问题")}</button>
             <button className="text-sm text-[#7A7670] py-2 disabled:opacity-40" disabled={!hasThoughts || !!busy || loading}
-              onClick={() => void runAI('summary')}>整理到这里</button>
-            {(busy === 'question' || busy === 'summary') && <button className="text-sm text-[#7A7670] py-2" onClick={stopAI}>停止，我先自己写</button>}
+              onClick={() => void runAI('summary')}>{tr("整理到这里")}</button>
+            {(busy === 'question' || busy === 'summary') && <button className="text-sm text-[#7A7670] py-2" onClick={stopAI}>{tr("停止，我先自己写")}</button>}
           </div>
           <div className="flex flex-wrap justify-between gap-2 text-xs text-[#7A7670]" aria-live="polite">
-            <span>{busy === 'question' ? '正在准备一个问题…' : busy === 'summary' ? '正在整理你写下的内容…' : 'Enter 换行 · Ctrl / ⌘ + Enter 记下这段'}</span>
-            <span>{saveState === 'saving' ? '正在保存…' : saveState === 'error' ? '尚未保存' : '草稿与记录保存在当前浏览器'}
-              {saveState === 'error' && <button className="underline ml-2" onClick={() => { if (sessionRef.current) void commit(sessionRef.current).catch(() => {}) }}>重试保存</button>}
+            <span>{busy === 'question' ? tr("正在准备一个问题…") : busy === 'summary' ? tr("正在整理你写下的内容…") : tr("Enter 换行 · Ctrl / ⌘ + Enter 记下这段")}</span>
+            <span>{saveState === 'saving' ? tr("正在保存…") : saveState === 'error' ? tr("尚未保存") : tr("草稿与记录保存在当前浏览器")}
+              {saveState === 'error' && <button className="underline ml-2" onClick={() => { if (sessionRef.current) void commit(sessionRef.current).catch(() => {}) }}>{tr("重试保存")}</button>}
             </span>
           </div>
         </footer>
@@ -379,21 +380,21 @@ function CandidateCard({ candidate, disabled, onRetain, onEdit }: {
   const content = candidate.userContent ?? candidate.content
   const type = candidate.userType ?? candidate.type
   return <div className="rounded-xl border border-[#E0D8CC] p-3 space-y-2 bg-[#FFFBF5]">
-    <label className="block text-xs text-[#7A7670]">我想保留的表达
+    <label className="block text-xs text-[#7A7670]">{tr("我想保留的表达")}
       <textarea value={content} onChange={event => onEdit(event.target.value, type)} disabled={!!candidate.addedNodeId || disabled}
         className="block w-full bg-transparent text-sm leading-7 text-[#4A4036] mt-1 p-1 border-b border-[#E0D8CC]" rows={2} />
     </label>
-    <p className="text-xs text-[#7A7670] whitespace-pre-wrap">来自我的原话：「{candidate.quote}」</p>
-    <p className="text-xs text-[#7A7670]">分层参考：{candidate.reason}</p>
+    <p className="text-xs text-[#7A7670] whitespace-pre-wrap">{tr("来自我的原话：「")}{candidate.quote}{getLanguage() === 'en' ? '”' : '」'}</p>
+    <p className="text-xs text-[#7A7670]">{tr("分层参考：")}{candidate.reason}</p>
     <div className="flex flex-wrap gap-3 items-center">
-      <label className="text-xs text-[#7A7670]">类型由我决定：
+      <label className="text-xs text-[#7A7670]">{tr("类型由我决定：")}
         <select className="bg-transparent py-2" value={type} disabled={!!candidate.addedNodeId || disabled}
           onChange={event => onEdit(content, event.target.value as BeliefNode['type'])}>
-          {EXPLORATION_TYPES.map(value => <option key={value} value={value}>{value === 'seed' ? '暂不分类' : getTypeLabel(value)}</option>)}
+          {EXPLORATION_TYPES.map(value => <option key={value} value={value}>{value === 'seed' ? tr("暂不分类") : getTypeLabel(value)}</option>)}
         </select>
       </label>
       <button className="btn-soft text-xs disabled:opacity-50" disabled={!!candidate.addedNodeId || disabled || !content.trim()}
-        onClick={() => onRetain(content, type)}>{candidate.addedNodeId ? '已保留到画布' : '把这句话加入画布'}</button>
+        onClick={() => onRetain(content, type)}>{candidate.addedNodeId ? tr("已保留到画布") : tr("把这句话加入画布")}</button>
     </div>
   </div>
 }
@@ -410,7 +411,7 @@ function LegacyArchive({ value }: { value: unknown }) {
     {Object.entries(labels).map(([key, label]) => {
       const content = result[key]
       const text = typeof content === 'string' ? content : Array.isArray(content) ? content.filter(item => typeof item === 'string').join('\n') : ''
-      return text ? <div key={key}><p className="text-xs">{label}</p><p className="whitespace-pre-wrap leading-7">{text}</p></div> : null
+      return text ? <div key={key}><p className="text-xs">{tr(label)}</p><p className="whitespace-pre-wrap leading-7">{text}</p></div> : null
     })}
   </div>
 }

@@ -1,4 +1,5 @@
 import type { BeliefEdge, BeliefNode } from '../db'
+import { tr } from '../i18n'
 
 export type ChosenLinkType = 'leads_to' | 'related_to' | 'manual'
 
@@ -9,11 +10,11 @@ export function isSamePair(edge: Pick<BeliefEdge, 'sourceId' | 'targetId'>, firs
 
 export function linkTypeLabel(type: BeliefEdge['type']): string {
   switch (type) {
-    case 'leads_to': return '可能影响'
-    case 'derives_from': return '可能派生'
-    case 'related_to': return '有关联'
-    case 'suggested_by_ai': return '旧 AI 建议 · 待确认'
-    case 'manual': return '关系待厘清'
+    case 'leads_to': return tr('可能影响')
+    case 'derives_from': return tr('可能派生')
+    case 'related_to': return tr('有关联')
+    case 'suggested_by_ai': return tr('旧 AI 建议 · 待确认')
+    case 'manual': return tr('关系待厘清')
   }
 }
 

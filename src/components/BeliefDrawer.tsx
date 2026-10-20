@@ -1,3 +1,4 @@
+import { getLanguage, tr } from '../i18n'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePanelFocus } from './usePanelFocus'
@@ -103,11 +104,11 @@ export default function BeliefDrawer({
             {/* 头部 */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
               <h3 id="overview-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-                信念总览
+                {tr("信念总览")}
               </h3>
               <button
                 type="button"
-                aria-label="关闭信念总览"
+                aria-label={tr("关闭信念总览")}
                 data-panel-close
                 className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
@@ -131,7 +132,7 @@ export default function BeliefDrawer({
                   }}
                   onClick={() => setActiveTab(tab.key)}
                 >
-                  {tab.label}
+                  {tr(tab.label)}
                 </button>
               ))}
             </div>
@@ -141,7 +142,7 @@ export default function BeliefDrawer({
               {activeTab === 'tree' && (
                 <div className="space-y-4">
                   {beliefTree.length === 0 && (
-                    <EmptyHint text="还没有核心信念" />
+                    <EmptyHint text={tr("还没有核心信念")} />
                   )}
                   {beliefTree.map(({ node, children }) => (
                     <div key={node.id}>
@@ -179,7 +180,7 @@ export default function BeliefDrawer({
                 <NodeList
                   nodes={breakNodes}
                   onFocus={handleFocusNode}
-                  emptyText="还没有标记为破除的信念"
+                  emptyText={tr("还没有标记为破除的信念")}
                 />
               )}
 
@@ -187,14 +188,14 @@ export default function BeliefDrawer({
                 <NodeList
                   nodes={strengthenNodes}
                   onFocus={handleFocusNode}
-                  emptyText="还没有标记为坚定的信念"
+                  emptyText={tr("还没有标记为坚定的信念")}
                 />
               )}
 
               {activeTab === 'trash' && (
                 <div className="space-y-1.5">
                   {trashNodes.length === 0 && (
-                    <EmptyHint text="垃圾箱是空的" />
+                    <EmptyHint text={tr("垃圾箱是空的")} />
                   )}
                   {trashNodes.map(node => {
                     const daysLeft = node.deletedAt
@@ -224,8 +225,8 @@ export default function BeliefDrawer({
                           </span>
                           <span className="text-xs" style={{ color: '#C4B8B0' }}>
                             {getTypeLabel(node.type)}
-                            {isReleased ? ' · 已释怀' : ' · 已删除'}
-                            {daysLeft > 0 ? ` · ${daysLeft}天后清理` : ' · 即将清理'}
+                            {isReleased ? tr(" · 已释怀") : tr(" · 已删除")}
+                            {daysLeft > 0 ? (getLanguage() === 'en' ? ` · deleted in ${daysLeft} days` : ` · ${daysLeft}天后清理`) : tr(" · 即将清理")}
                           </span>
                         </div>
                         <button
@@ -248,13 +249,13 @@ export default function BeliefDrawer({
                             setTrashNodes(prev => prev.filter(n => n.id !== node.id))
                           }}
                         >
-                          恢复
+                          {tr("恢复")}
                         </button>
                         <button
                           className="text-xs px-2 py-1 rounded-full transition-all hover:opacity-70 flex-shrink-0"
                           style={{ color: '#C8A080' }}
                           onClick={() => {
-                            const confirmed = window.confirm('确定要彻底删除这个信念吗？此操作不可恢复。')
+                            const confirmed = window.confirm(tr('确定要彻底删除这个信念吗？此操作不可恢复。'))
                             if (!confirmed) return
                             const s = useBeliefStore.getState()
                             s.removeNode(node.id)
@@ -263,7 +264,7 @@ export default function BeliefDrawer({
                             setTrashNodes(prev => prev.filter(n => n.id !== node.id))
                           }}
                         >
-                          彻底删除
+                          {tr("彻底删除")}
                         </button>
                       </div>
                     )
@@ -399,7 +400,7 @@ function CategoriesOverview({
   const entries = Array.from(grouped.entries()).filter(([, ns]) => ns.length > 0)
 
   if (entries.length === 0) {
-    return <EmptyHint text="还没有设置领域分类" />
+    return <EmptyHint text={tr("还没有设置领域分类")} />
   }
 
   return (
@@ -407,7 +408,7 @@ function CategoriesOverview({
       {entries.map(([cat, catNodes]) => {
         const isUncategorized = cat === '_uncategorized'
         const config = CATEGORY_CONFIG[cat]
-        const label = isUncategorized ? '未分类' : (config?.label ?? cat)
+        const label = isUncategorized ? tr('未分类') : (config ? tr(config.label) : cat)
         const emoji = isUncategorized ? '🏷️' : (config?.emoji ?? '📌')
         const color = isUncategorized ? '#C4B8B0' : (config?.color ?? '#C4B8B0')
 

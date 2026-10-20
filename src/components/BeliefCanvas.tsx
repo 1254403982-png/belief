@@ -1,3 +1,4 @@
+import { getLanguage, tr } from '../i18n'
 import { useRef, useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBeliefStore } from '../stores/useBeliefStore'
@@ -172,7 +173,7 @@ function ContextMenu({
             onClose()
           }}
         >
-          {a.label}
+          {tr(a.label)}
         </button>
       ))}
     </div>
@@ -1470,8 +1471,8 @@ export default function BeliefCanvas() {
         >
           <span className="text-sm" style={{ color: '#4A4036' }}>
             {reviewReminder === 'daily'
-              ? '昨天还有未完成的待办，要看看吗？ 📌'
-              : '又到了看看自己的时候了 🌿'}
+              ? tr("昨天还有未完成的待办，要看看吗？ 📌")
+              : tr("又到了看看自己的时候了 🌿")}
           </span>
           <button
             className="text-xs hover:opacity-70 transition-opacity"
@@ -1490,18 +1491,18 @@ export default function BeliefCanvas() {
       <div className={`absolute top-0 left-0 right-0 ${selectedNode ? 'md:right-80' : ''} flex justify-between items-center px-3 sm:px-6 py-3 pointer-events-none ${topPanelOpen ? 'z-10' : 'z-30'}`}>
         <button
           type="button"
-          aria-label="将画布视角归位"
+          aria-label={tr("将画布视角归位")}
           className="hidden sm:inline-block font-serif text-lg tracking-wider text-[#5C4A3A] pointer-events-auto cursor-pointer select-none rounded-md px-1 hover:text-[#8B6B4A] transition-colors"
           onClick={() => store.setViewState({ offsetX: 0, offsetY: 0, scale: 1 })}
         >
-          信念
+          {tr("信念")}
         </button>
-        <div role="group" aria-label="画布工具" className="flex gap-1 sm:gap-2 items-center pointer-events-auto">
+        <div role="group" aria-label={tr("画布工具")} className="flex gap-1 sm:gap-2 items-center pointer-events-auto">
           <button
             type="button"
             className="canvas-tool-button"
-            title="信念总览"
-            aria-label="打开信念总览"
+            title={tr("信念总览")}
+            aria-label={tr("打开信念总览")}
             onClick={() => setDrawerOpen(true)}
           >
             <ToolbarIcon name="overview" />
@@ -1509,8 +1510,8 @@ export default function BeliefCanvas() {
           <button
             type="button"
             className="canvas-tool-button"
-            title="书本问答"
-            aria-label="打开书本问答"
+            title={tr("书本问答")}
+            aria-label={tr("打开书本问答")}
             onClick={() => { setBookQAHasOpened(true); setBookQAOpen(true) }}
           >
             <ToolbarIcon name="books" />
@@ -1518,8 +1519,8 @@ export default function BeliefCanvas() {
           <button
             type="button"
             className="canvas-tool-button"
-            title="我的探索：记录、问询与继续思考"
-            aria-label="我的探索"
+            title={tr("我的探索：记录、问询与继续思考")}
+            aria-label={tr("我的探索")}
             onClick={() => {
               setExplorationSessionId(undefined)
               setExplorationSourceNodeId(undefined)
@@ -1531,8 +1532,8 @@ export default function BeliefCanvas() {
           <button
             type="button"
             className="canvas-tool-button"
-            title="自动梳理布局"
-            aria-label="自动梳理布局"
+            title={tr("自动梳理布局")}
+            aria-label={tr("自动梳理布局")}
             aria-pressed={forceEnabled}
             onClick={() => setForceEnabled(!forceEnabled)}
           >
@@ -1541,8 +1542,8 @@ export default function BeliefCanvas() {
           <button
             type="button"
             className="canvas-tool-button"
-            title="设置"
-            aria-label="打开设置"
+            title={tr("设置")}
+            aria-label={tr("打开设置")}
             onClick={() => setSettingsOpen(true)}
           >
             <ToolbarIcon name="settings" />
@@ -1550,8 +1551,8 @@ export default function BeliefCanvas() {
           <button
             type="button"
             className="canvas-tool-button"
-            title="使用手册"
-            aria-label="打开使用手册"
+            title={tr("使用手册")}
+            aria-label={tr("打开使用手册")}
             onClick={() => setManualOpen(true)}
           >
             <ToolbarIcon name="help" />
@@ -1580,7 +1581,7 @@ export default function BeliefCanvas() {
           <button
             className="text-xs hover:opacity-70 flex-shrink-0 w-8 h-8 flex items-center justify-center"
             style={{ color: '#9C9088' }}
-            title="编辑"
+            title={tr("编辑")}
             onClick={() => {
               setEditingNodeId(selectedNode.id)
               setEditText(selectedNode.content)
@@ -1591,7 +1592,7 @@ export default function BeliefCanvas() {
           <button
             className="text-xs hover:opacity-70 flex-shrink-0 w-8 h-8 flex items-center justify-center"
             style={{ color: connectMode === selectedNode.id ? '#D4A843' : '#9C9088' }}
-            title="连接到另一个节点"
+            title={tr("连接到另一个节点")}
             onClick={() => {
               setConnectMode(connectMode === selectedNode.id ? null : selectedNode.id)
               store.selectNode(null)
@@ -1613,7 +1614,7 @@ export default function BeliefCanvas() {
           }}
         >
           <span className="text-xs" style={{ color: '#8B6B3A' }}>
-            点击另一个节点建立连接 · 点击空白取消
+            {tr("点击另一个节点建立连接 · 点击空白取消")}
           </span>
         </div>
       )}
@@ -1629,7 +1630,7 @@ export default function BeliefCanvas() {
             }}
           >
             <span className="text-xs" style={{ color: '#8B6B3A' }}>
-              聚焦模式
+              {tr("聚焦模式")}
             </span>
             <button
               className="text-xs px-2 py-0.5 rounded-full transition-all hover:opacity-70"
@@ -1643,7 +1644,7 @@ export default function BeliefCanvas() {
                 setDeepInsightOpen(true)
               }}
             >
-              从这里继续探索
+              {tr("从这里继续探索")}
             </button>
             <button
               className="text-xs hover:opacity-70 transition-opacity cursor-pointer"
@@ -1683,7 +1684,7 @@ export default function BeliefCanvas() {
               }}
             />
             <p className="text-xs mt-2 text-center" style={{ color: '#9C9088' }}>
-              Enter 保存 · Esc 取消
+              {tr("Enter 保存 · Esc 取消")}
             </p>
           </div>
         </div>
@@ -1832,8 +1833,8 @@ export default function BeliefCanvas() {
               void handleInputSubmit(content)
             }}
             disabled={aiToast.loading}
-            title="请念念帮我看一眼（分类与润色由你确认）"
-            aria-label="请念念帮我看一眼"
+            title={tr("请念念帮我看一眼（分类与润色由你确认）")}
+            aria-label={tr("请念念帮我看一眼")}
             aria-describedby={aiHintActive ? 'onboarding-ai-tip' : undefined}
           >
             <NianNian size={24} />
@@ -1851,8 +1852,8 @@ export default function BeliefCanvas() {
               ref={inputRef}
               className="input-underline text-center w-full pr-12"
               type="text"
-              aria-label="写下一个念头"
-              placeholder="想到了什么...？"
+              aria-label={tr("写下一个念头")}
+              placeholder={tr("想到了什么...？")}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
@@ -1890,8 +1891,8 @@ export default function BeliefCanvas() {
                 setInputValue('')
                 handleSendInput(content)
               }}
-              title="发送（Enter）"
-              aria-label="发送念头"
+              title={tr("发送（Enter）")}
+              aria-label={tr("发送念头")}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M2 8l12-6-6 12-2-6-4-0z" fill="currentColor" />
@@ -1908,8 +1909,8 @@ export default function BeliefCanvas() {
               border: dailyTaskCount > 0 ? '1px solid rgba(200, 169, 110, 0.25)' : '1px solid rgba(200, 200, 190, 0.15)',
             }}
             onClick={() => setDailyPanelOpen(true)}
-            title="我的待办（Ctrl+Enter 快速添加行动）"
-            aria-label={dailyTaskCount > 0 ? `我的待办，${dailyTaskCount} 项` : '打开我的待办'}
+            title={tr("我的待办（Ctrl+Enter 快速添加行动）")}
+            aria-label={dailyTaskCount > 0 ? (getLanguage() === 'en' ? `My tasks, ${dailyTaskCount} items` : `我的待办，${dailyTaskCount} 项`) : tr("打开我的待办")}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 4 12 12M14 3l7 7-3 1-7-7 3-1ZM10 8l6 6-5 5-4-4-4 6 6-4-4-4 5-5Z" /></svg>
             {dailyTaskCount > 0 && <span className="font-medium tabular-nums">{dailyTaskCount}</span>}
@@ -1921,9 +1922,9 @@ export default function BeliefCanvas() {
       {store.nodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <p className="text-lg text-center tracking-wide leading-relaxed" style={{ color: '#C4B8B0' }}>
-            你的信念网络还是一片空白
+            {tr("你的信念网络还是一片空白")}
             <br />
-            <span className="text-sm mt-2 block">在下方输入你的第一个念头吧</span>
+            <span className="text-sm mt-2 block">{tr("在下方输入你的第一个念头吧")}</span>
           </p>
         </div>
       )}
@@ -1933,12 +1934,12 @@ export default function BeliefCanvas() {
         <div className="absolute bottom-24 left-6 z-10 pointer-events-none">
           <p className="text-xs leading-relaxed" style={{ color: '#C4B8B0' }}>
             {store.focusNodeId ? (
-              <>Esc 或点击空白退出聚焦</>
+              <>{tr("Esc 或点击空白退出聚焦")}</>
             ) : (
               <>
-                拖拽空白平移 · 滚轮缩放
+                {tr("拖拽空白平移 · 滚轮缩放")}
                 <br />
-                长按节点聚焦 · 右键更多
+                {tr("长按节点聚焦 · 右键更多")}
               </>
             )}
           </p>

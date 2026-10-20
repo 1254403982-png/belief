@@ -4,7 +4,7 @@
 
 ## 可直接发到小组群的任务说明
 
-> 我整理了“信念 / Belief”项目的统一英文素材：产品介绍、问题与用户、核心功能、创新点、竞品定位、未来盈利设想、PPT 截图清单，以及 AI 制作 PPT 时可用的 Prompt。请大家先基于这份材料各自写 1–2 分钟英语讲稿。建议分工：①问题、重要性、目标用户；②产品具体怎么用；③创新点、竞品与差异；④未来盈利模式、现状与下一步。做 PPT 的同学用真实界面截图和虚构演示账号，不要用任何人的真实记录。当前原型免费、界面为中文，跨设备同步尚未实现；这些不能讲成已上线的商业能力。示例讲稿只供参考，可以按各自风格改写。
+> 我整理了“信念 / Belief”项目的统一英文素材：产品介绍、问题与用户、核心功能、创新点、竞品定位、未来盈利设想、PPT 截图清单，以及 AI 制作 PPT 时可用的 Prompt。请大家先基于这份材料各自写 1–2 分钟英语讲稿。建议分工：①问题、重要性、目标用户；②产品具体怎么用；③创新点、竞品与差异；④未来盈利模式、现状与下一步。做 PPT 的同学用真实界面截图和虚构演示账号，不要用任何人的真实记录。当前原型免费，界面可切换简体中文和英语；跨设备同步尚未实现。示例讲稿只供参考，可以按各自风格改写。
 
 ## A. 项目是什么：英文事实卡
 
@@ -16,7 +16,7 @@
 
 **Tagline option:** *Make room to think. See what connects.*
 
-**Current product:** A working Chinese-language React/Vite web prototype. It has a local account system and browser-based storage. It is free to use today. It does **not** currently sync records across devices.
+**Current product:** A working React/Vite web prototype with Simplified Chinese and English interface options. Its AI guide is called **Bel** in English. It has a local account system and browser-based storage. It is free to use today. It does **not** currently sync records across devices.
 
 **Demo site:** [belief-five.vercel.app](https://belief-five.vercel.app/) (may be inaccessible without VPN on some mainland networks). **Code:** [GitHub repository](https://github.com/1254403982-png/belief).
 
@@ -69,7 +69,7 @@
 
 ## F. PPT 素材任务单：交给负责截图的组员
 
-目前**没有已截好的图片**。截图同学可从[演示网站](https://belief-five.vercel.app/)获取；如果网站在国内无法打开，可在本地仓库运行 `npm install`、`npm run dev`。用全新的演示账号和虚构内容，桌面宽屏截图，保留原始 PNG。中文 UI 的旁边由 PPT 作者加英文说明，不要把图片上的真实界面文字改造成不存在的功能。
+目前**没有已截好的图片**。截图同学可从[演示网站](https://belief-five.vercel.app/)获取；如果网站在国内无法打开，可在本地仓库运行 `npm install`、`npm run dev`。用全新的演示账号和虚构内容，桌面宽屏截图，保留原始 PNG。截图前可在登录页或设置中切换英语；如线上尚未更新，请用本地最新版。书籍原文和用户自己输入的内容不会随界面语言自动翻译。
 
 | ID | 需要截图的真实界面 | 用途/英文图注 | 建议位置 |
 | --- | --- | --- | --- |
@@ -94,7 +94,7 @@
 
 **Prompt for a slide-generation tool (English):**
 
-> Create an English product presentation for **Belief / 信念**, a working Chinese-language reflective web prototype. The audience is classmates and instructors. Four team members will speak for about 1–2 minutes each. Cover: the problem and why it matters; target users; a detailed journey from writing to optional one-question AI exploration, user-controlled summary, and visual belief map; book-based Q&A; specific design innovations; an honest comparison with journaling apps, AI journals, and mind-map tools; a clearly hypothetical future freemium business model; current limitations and next steps. Use short slide text, large authentic screenshots with “Demo data” labels, and a warm-white minimal visual style. Do not invent user counts, revenue, pricing, clinical benefits, encryption, English UI, or cross-device sync. Treat all AI interpretations as tentative and user-editable. Use the supplied source pack and product screenshots as the factual basis.
+> Create an English product presentation for **Belief / 信念**, a working reflective web prototype with Simplified Chinese and English interface options. The AI guide's English name is Bel. The audience is classmates and instructors. Four team members will speak for about 1–2 minutes each. Cover: the problem and why it matters; target users; a detailed journey from writing to optional one-question AI exploration, user-controlled summary, and visual belief map; book-based Q&A; specific design innovations; an honest comparison with journaling apps, AI journals, and mind-map tools; a clearly hypothetical future freemium business model; current limitations and next steps. Use short slide text, large authentic screenshots with “Demo data” labels, and a warm-white minimal visual style. Do not invent user counts, revenue, pricing, clinical benefits, encryption, or cross-device sync. Treat all AI interpretations as tentative and user-editable. Use the supplied source pack and product screenshots as the factual basis.
 
 ## H. 发给组员前的核对
 

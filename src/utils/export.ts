@@ -6,6 +6,7 @@
 
 import { db } from '../db'
 import { getTypeLabel, getCategoryLabel, getCategoryEmoji, edgeTypeLabel } from '../components/utils'
+import { getLanguage, text } from '../i18n'
 
 // ====== JSON 导出 ======
 
@@ -39,7 +40,7 @@ export async function exportAsJSON(userId: string): Promise<void> {
 
   downloadFile(
     JSON.stringify(data, null, 2),
-    `信念-备份-${formatDateStr(new Date())}.json`,
+    `${text('信念-备份', 'Belief-backup')}-${formatDateStr(new Date())}.json`,
     'application/json',
   )
 }
@@ -64,26 +65,26 @@ export async function exportAsMarkdown(userId: string): Promise<void> {
   const observeNodes = nodes.filter(n => n.attitude === 'observe')
 
   const lines: string[] = [
-    '# 信念 · 导出报告',
+    text('# 信念 · 导出报告', '# Belief · Export report'),
     '',
-    `> 导出时间：${new Date().toLocaleString('zh-CN')}`,
-    `> 节点总数：${nodes.length}　连线总数：${edges.length}`,
+    `${text('> 导出时间：', '> Exported: ')}${new Date().toLocaleString(getLanguage())}`,
+    text(`> 节点总数：${nodes.length}　连线总数：${edges.length}`, `> Nodes: ${nodes.length} · Links: ${edges.length}`),
     '',
     '---',
     '',
-    '## 📋 按领域分类',
+    text('## 📋 按领域分类', '## 📋 By life area'),
     '',
   ]
 
   for (const [cat, catNodes] of byCategory) {
     const emoji = getCategoryEmoji(cat)
     const label = getCategoryLabel(cat)
-    lines.push(`### ${emoji} ${label}（${catNodes.length}）`)
+    lines.push(text(`### ${emoji} ${label}（${catNodes.length}）`, `### ${emoji} ${label} (${catNodes.length})`))
     lines.push('')
     for (const n of catNodes) {
       const typeLabel = getTypeLabel(n.type)
       const attitude = n.attitude
-        ? { break: ' [破除]', strengthen: ' [坚定]', observe: ' [观察]' }[n.attitude] ?? ''
+        ? { break: text(' [破除]', ' [Release]'), strengthen: text(' [坚定]', ' [Strengthen]'), observe: text(' [观察]', ' [Observe]') }[n.attitude] ?? ''
         : ''
       lines.push(`- **${escapeMd(n.content)}** — *${typeLabel}*${attitude}`)
       if (n.userNote) lines.push(`  > ${escapeMd(n.userNote)}`)
@@ -95,14 +96,17 @@ export async function exportAsMarkdown(userId: string): Promise<void> {
   if (edges.length > 0) {
     lines.push('---')
     lines.push('')
-    lines.push('## 🔗 信念连线')
+    lines.push(text('## 🔗 信念连线', '## 🔗 Belief links'))
     lines.push('')
     const nodeMap = new Map(nodes.map(n => [n.id, n]))
     for (const e of edges) {
       const src = nodeMap.get(e.sourceId)
       const tgt = nodeMap.get(e.targetId)
       if (src && tgt) {
-        lines.push(`- **${escapeMd(src.content)}** → **${escapeMd(tgt.content)}**（${edgeTypeLabel(e.type)}）`)
+        lines.push(text(
+          `- **${escapeMd(src.content)}** → **${escapeMd(tgt.content)}**（${edgeTypeLabel(e.type)}）`,
+          `- **${escapeMd(src.content)}** → **${escapeMd(tgt.content)}** (${edgeTypeLabel(e.type)})`,
+        ))
       }
     }
     lines.push('')
@@ -112,22 +116,22 @@ export async function exportAsMarkdown(userId: string): Promise<void> {
   if (breakNodes.length > 0 || strengthenNodes.length > 0 || observeNodes.length > 0) {
     lines.push('---')
     lines.push('')
-    lines.push('## 🏷️ 态度标记')
+    lines.push(text('## 🏷️ 态度标记', '## 🏷️ Reflection markers'))
     lines.push('')
     if (breakNodes.length > 0) {
-      lines.push(`### 待破除（${breakNodes.length}）`)
+      lines.push(text(`### 待破除（${breakNodes.length}）`, `### To release (${breakNodes.length})`))
       lines.push('')
       for (const n of breakNodes) lines.push(`- ${escapeMd(n.content)}`)
       lines.push('')
     }
     if (strengthenNodes.length > 0) {
-      lines.push(`### 待坚定（${strengthenNodes.length}）`)
+      lines.push(text(`### 待坚定（${strengthenNodes.length}）`, `### To strengthen (${strengthenNodes.length})`))
       lines.push('')
       for (const n of strengthenNodes) lines.push(`- ${escapeMd(n.content)}`)
       lines.push('')
     }
     if (observeNodes.length > 0) {
-      lines.push(`### 观察中（${observeNodes.length}）`)
+      lines.push(text(`### 观察中（${observeNodes.length}）`, `### Observing (${observeNodes.length})`))
       lines.push('')
       for (const n of observeNodes) lines.push(`- ${escapeMd(n.content)}`)
       lines.push('')
@@ -136,7 +140,7 @@ export async function exportAsMarkdown(userId: string): Promise<void> {
 
   downloadFile(
     lines.join('\n'),
-    `信念-报告-${formatDateStr(new Date())}.md`,
+    `${text('信念-报告', 'Belief-report')}-${formatDateStr(new Date())}.md`,
     'text/markdown;charset=utf-8',
   )
 }

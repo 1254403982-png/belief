@@ -14,7 +14,7 @@ Prepared from the current web prototype on 15 October 2026. This is a source pac
 
 **What it is not:** A therapist, a diagnosis tool, or a system that can determine a person's “true” core belief. AI suggestions are tentative; the user decides what to keep.
 
-**Current status:** A working React/Vite web prototype. It supports local accounts, a visual belief canvas, guided exploration, book-based Q&A, tasks, and data export. Records currently live in each browser; cross-device sync and cloud accounts are planned, not available. All current user-facing features are free. The UI is currently in Chinese, so use English captions and speaker narration in the deck rather than presenting it as an English-language app.
+**Current status:** A working React/Vite web prototype. It supports local accounts, a visual belief canvas, guided exploration, book-based Q&A, tasks, and data export. The interface can switch between Simplified Chinese and English; the AI guide is called Bel in English. Records currently live in each browser; cross-device sync and cloud accounts are planned, not available. All current user-facing features are free.
 
 ### Fast answers for the team's content questions
 
@@ -36,7 +36,7 @@ Use this if a teammate or a slide-generation tool asks for the **project concept
 
 Use this if a teammate uses AI to **draft the presentation**:
 
-> Create a seven-slide English product pitch for Belief, a working Chinese-language web prototype. Audience: classmates and instructors. Four speakers have 1–2 minutes each. Cover the problem and why it matters, target users, the product journey, distinctive design choices, comparison with journaling/AI-journal/mind-map alternatives, a proposed future revenue model, and current limitations/next steps. Use short slide text and natural spoken English. Base feature claims on the supplied product screenshots and this brief. Do not invent user counts, revenue, clinical outcomes, encryption, or cross-device sync. Label proposed business features and future plans clearly. Use a warm-white palette and real product screenshots with clearly marked fictional demo data.
+> Create a seven-slide English product pitch for Belief, a working bilingual web prototype with Simplified Chinese and English interface options. Its AI guide is called Bel in English. Audience: classmates and instructors. Four speakers have 1–2 minutes each. Cover the problem and why it matters, target users, the product journey, distinctive design choices, comparison with journaling/AI-journal/mind-map alternatives, a proposed future revenue model, and current limitations/next steps. Use short slide text and natural spoken English. Base feature claims on the supplied product screenshots and this brief. Do not invent user counts, revenue, clinical outcomes, encryption, or cross-device sync. Label proposed business features and future plans clearly. Use a warm-white palette and real product screenshots with clearly marked fictional demo data.
 
 ## 3. Seven-slide structure and speaking script
 
@@ -141,11 +141,11 @@ The scripts are written to be spoken naturally, not read as slide bullets. At a 
 
 **Speaker 4 — close:**
 
-> What we can show now is a working web prototype, not a finished health product. Its strongest parts are the writing flow, the optional AI questions, the visual canvas, and the user's control over what becomes part of the map. Its current limits are just as clear: the interface is in Chinese, data does not yet sync between devices, and access from mainland China needs a more suitable deployment. Our next steps are to improve access, add secure cloud accounts and synchronization, refine mobile use, and test the experience with real users. We want Belief to help people think with more clarity while keeping the meaning of their own words in their own hands.
+> What we can show now is a working web prototype, not a finished health product. Its strongest parts are the writing flow, the optional AI questions, the visual canvas, and the user's control over what becomes part of the map. The interface now supports Chinese and English, and our AI guide is called Bel in English. Its current limits are just as clear: data does not yet sync between devices, and access from mainland China needs a more suitable deployment. Our next steps are to improve access, add secure cloud accounts and synchronization, refine mobile use, and test the experience with real users. We want Belief to help people think with more clarity while keeping the meaning of their own words in their own hands.
 
 ## 4. Screenshot and media checklist
 
-Use [the current demo site](https://belief-five.vercel.app/) where it is accessible, or run this repository locally with `npm run dev`. Since the product UI is currently in Chinese, keep the screenshots authentic and place short English captions beside them. Use a **new demo account with invented, non-sensitive content**. Never capture the owner's real journal, account details, API key, or browser address containing private information. A mainland live-demo connection may fail; embed screenshots or a short offline video in the deck.
+Use [the current demo site](https://belief-five.vercel.app/) where it is accessible, or run this repository locally with `npm run dev`. Select English on the login screen or in Settings before taking screenshots; if the hosted version has not updated, use the latest local build. Book source passages and user-written records remain in their original language. Use a **new demo account with invented, non-sensitive content**. Never capture the owner's real journal, account details, API key, or browser address containing private information. A mainland live-demo connection may fail; embed screenshots or a short offline video in the deck.
 
 | ID | Capture | How to prepare it | Best slide |
 | --- | --- | --- | --- |
@@ -168,13 +168,13 @@ Use [the current demo site](https://belief-five.vercel.app/) where it is accessi
 
 The owner can send this to the group:
 
-> We are pitching **Belief**, a working reflective web app. Our four speaking parts are: **(1) problem, importance, and users; (2) how the product works; (3) innovation and competition; (4) business model and next steps.** Please use the English scripts as a first draft and speak naturally rather than reading slide bullets. The PPT should be visual and use real screenshots from a fictional demo account. Do not claim that we already have cloud sync, English UI, revenue, proven mental-health outcomes, or a final pricing plan. The proposed premium tier is a future business hypothesis. We need one person to build the deck, one to capture and label screenshots, and each speaker to rehearse their section to 1–2 minutes. Keep the same demo example throughout.
+> We are pitching **Belief**, a working reflective web app with Chinese and English interface options. Our four speaking parts are: **(1) problem, importance, and users; (2) how the product works; (3) innovation and competition; (4) business model and next steps.** Please use the English scripts as a first draft and speak naturally rather than reading slide bullets. The PPT should be visual and use real screenshots from a fictional demo account. Do not claim that we already have cloud sync, revenue, proven mental-health outcomes, or a final pricing plan. The proposed premium tier is a future business hypothesis. We need one person to build the deck, one to capture and label screenshots, and each speaker to rehearse their section to 1–2 minutes. Keep the same demo example throughout.
 
 Before submission, agree on the required total duration, whether the instructor expects a live demo, and whether a references slide is required. If a course template arrives, map these seven content blocks to its headings instead of forcing the current slide count.
 
 **给组员的中文消息，可直接复制：**
 
-> 我把“信念”产品介绍分成 4 段英文讲稿，每人约 1–2 分钟：①问题、重要性和目标用户；②产品具体怎么用；③创新点和竞品；④未来盈利模式和下一步。建议做 7 页左右的 PPT，以真实界面截图为主。请用新建的演示账号和虚构内容截图，不要放任何人的真实思考记录。当前产品免费、中文界面、数据只存在本机浏览器；云同步和商业化都是未来计划，不能讲成已实现。每个人先熟悉自己那段并计时，我负责汇总素材；做 PPT 的同学按文档里的页面结构排版。若老师有固定页数或时长，我们再压缩。
+> 我把“信念”产品介绍分成 4 段英文讲稿，每人约 1–2 分钟：①问题、重要性和目标用户；②产品具体怎么用；③创新点和竞品；④未来盈利模式和下一步。建议做 7 页左右的 PPT，以真实界面截图为主。请用新建的演示账号和虚构内容截图，不要放任何人的真实思考记录。当前产品免费、界面可切换简体中文和英语，数据仍只存在本机浏览器；云同步和商业化都是未来计划，不能讲成已实现。每个人先熟悉自己那段并计时，我负责汇总素材；做 PPT 的同学按文档里的页面结构排版。若老师有固定页数或时长，我们再压缩。
 
 ## 6. Source notes for competition claims
 

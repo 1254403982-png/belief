@@ -7,6 +7,7 @@
 import type { BeliefNode, BeliefEdge, ExplorationMessage, ExplorationSummary } from '../db'
 import { db } from '../db'
 import { parseExplorationQuestion, parseExplorationSummary } from './exploration'
+import { getLanguage, text } from '../i18n'
 
 // ====== 类型定义 ======
 
@@ -72,15 +73,21 @@ const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || ''
 export type AIRequestFailure = 'configuration' | 'billing' | 'authentication' | 'rate_limit' | 'network' | 'service'
 
 export function describeAIRequestFailure(reason: AIRequestFailure, originalSaved = false): string {
-  const note = originalSaved ? '你的原话已保存。' : '请先保留原文。'
+  const note = originalSaved ? text('你的原话已保存。', 'Your original words are saved.') : text('请先保留原文。', 'Please keep your original words for now.')
   switch (reason) {
-    case 'configuration': return `AI 服务尚未配置。${note}`
-    case 'billing': return `AI 服务余额不足，暂时无法回应。${note}`
-    case 'authentication': return `AI 服务凭据失效。${note}`
-    case 'rate_limit': return `AI 请求过于频繁，请稍后再试。${note}`
-    case 'network': return `连接 AI 服务失败，请稍后再试。${note}`
-    case 'service': return `AI 服务暂时无法回应，请稍后再试。${note}`
+    case 'configuration': return `${text('AI 服务尚未配置。', 'AI is not configured yet. ')}${note}`
+    case 'billing': return `${text('AI 服务余额不足，暂时无法回应。', 'AI service credit is insufficient. ')}${note}`
+    case 'authentication': return `${text('AI 服务凭据失效。', 'AI credentials are invalid. ')}${note}`
+    case 'rate_limit': return `${text('AI 请求过于频繁，请稍后再试。', 'Too many AI requests. Please try again later. ')}${note}`
+    case 'network': return `${text('连接 AI 服务失败，请稍后再试。', 'Could not connect to AI. Please try again later. ')}${note}`
+    case 'service': return `${text('AI 服务暂时无法回应，请稍后再试。', 'AI is unavailable right now. Please try again later. ')}${note}`
   }
+}
+
+function withResponseLanguage(systemPrompt: string): string {
+  return getLanguage() === 'en'
+    ? `${systemPrompt}\n\n界面语言为英语，助手英文名为 Bel：面向用户的提问、解释、洞察和回答请使用自然英语。JSON 字段名及类型/领域枚举保持原定义；用户原话、引文、书中摘录和仅为澄清而改写的原话应保留原语言，不要为了语言切换翻译用户记录。`
+    : systemPrompt
 }
 
 /**
@@ -125,7 +132,7 @@ async function deepseekChat(
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: withResponseLanguage(systemPrompt) },
           ...(options?.previousMessages ?? []),
           { role: 'user', content: userMessage },
         ],
@@ -167,8 +174,8 @@ async function deepseekChat(
 export async function getExplorationAvailability(): Promise<string | null> {
   const key = await getApiKey()
   if (!key) return DEEPSEEK_API_KEY
-    ? '请先登录，你仍然可以书写和保存记录。'
-    : 'AI 暂未配置好，你仍然可以书写和保存记录。'
+    ? text('请先登录，你仍然可以书写和保存记录。', 'Sign in to use Bel. You can still write and save notes.')
+    : text('AI 暂未配置好，你仍然可以书写和保存记录。', 'AI is not configured yet. You can still write and save notes.')
   return null
 }
 
@@ -248,7 +255,7 @@ async function deepseekChatText(
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: withResponseLanguage(systemPrompt) },
           ...(options?.previousMessages ?? []),
           { role: 'user', content: userMessage },
         ],

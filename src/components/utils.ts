@@ -3,6 +3,7 @@
  */
 
 import type { BeliefNode } from '../db'
+import { tr } from '../i18n'
 
 /** 节点类型 → 颜色 */
 export function getNodeColor(type: string): string {
@@ -31,7 +32,7 @@ export function getTypeLabel(type: string): string {
     material_reality: '物质现实',
     seed: '未分类',
   }
-  return map[type] || type
+  return tr(map[type] || type)
 }
 
 /** 节点类型 → 半径 */
@@ -132,7 +133,7 @@ export const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; col
 }
 
 export function getCategoryLabel(cat: string): string {
-  return CATEGORY_CONFIG[cat]?.label ?? cat
+  return CATEGORY_CONFIG[cat] ? tr(CATEGORY_CONFIG[cat].label) : cat
 }
 
 export function getCategoryEmoji(cat: string): string {
@@ -259,5 +260,5 @@ export function edgeTypeLabel(type: string): string {
     suggested_by_ai: 'AI 建议',
     manual: '手动连接',
   }
-  return map[type] || type
+  return tr(map[type] || type)
 }

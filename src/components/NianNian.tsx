@@ -1,7 +1,8 @@
+import { tr } from '../i18n'
 /** 念念的界面形象保持为轻量 SVG，和画布上的圆形节点使用同一视觉语言。 */
 export default function NianNian({ size = 32, className = '' }: { size?: number; className?: string }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 40 40" fill="none" role="img" aria-label="念念">
+    <svg className={className} width={size} height={size} viewBox="0 0 40 40" fill="none" role="img" aria-label={tr("念念")}>
       <circle cx="20" cy="20" r="18" fill="#F5EAD5" stroke="#D9C5A5" strokeWidth="1.2" />
       <circle cx="14.2" cy="17" r="1.55" fill="#6A5848" />
       <circle cx="25.8" cy="17" r="1.55" fill="#6A5848" />

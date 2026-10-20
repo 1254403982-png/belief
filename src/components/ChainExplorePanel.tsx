@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
@@ -250,7 +251,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
               <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-                🔍 链路深度挖掘
+                {tr("🔍 链路深度挖掘")}
               </h3>
               <button
                 className="text-sm hover:opacity-70 transition-opacity"
@@ -267,14 +268,14 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                   <span className="inline-block w-4 h-4 rounded-full animate-pulse"
                     style={{ backgroundColor: '#C8A96E' }}
                   />
-                  <p className="text-sm" style={{ color: '#9C9088' }}>正在分析这条信念链路...</p>
+                  <p className="text-sm" style={{ color: '#9C9088' }}>{tr("正在分析这条信念链路...")}</p>
                 </div>
               )}
 
               {panelState === 'error' && (
                 <div className="space-y-4 py-4">
                   <p className="text-sm text-center" style={{ color: '#9C9088' }}>
-                    AI 暂时无法回应，请稍后再试
+                    {tr("AI 暂时无法回应，请稍后再试")}
                   </p>
                   <div className="flex gap-2 justify-center">
                     <button
@@ -286,10 +287,10 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                       }}
                       onClick={loadChainExplore}
                     >
-                      重试
+                      {tr("重试")}
                     </button>
                     <button className="text-sm px-4 py-1.5" style={{ color: '#9C9088' }} onClick={handleClose}>
-                      关闭
+                      {tr("关闭")}
                     </button>
                   </div>
                 </div>
@@ -313,7 +314,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                   {result.suggestedRefinements.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                        ✨ 更精准的表达
+                        {tr("✨ 更精准的表达")}
                       </label>
                       {result.suggestedRefinements.map((ref, i) => {
                         const isApplied = appliedRefinements.has(ref.nodeId)
@@ -329,7 +330,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                           >
                             <div className="flex items-start gap-2">
                               <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: '#8BA4BC' }}>
-                                原:
+                                {tr("原:")}
                               </span>
                               <span className="text-sm line-through" style={{ color: '#9C9088' }}>
                                 {node?.content ?? ref.originalContent}
@@ -337,7 +338,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                             </div>
                             <div className="flex items-start gap-2">
                               <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: '#5A7A68' }}>
-                                新:
+                                {tr("新:")}
                               </span>
                               <span className="text-sm" style={{ color: '#4A4036' }}>
                                 {ref.refinedContent}
@@ -345,7 +346,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                             </div>
                             <p className="text-xs" style={{ color: '#7A7670' }}>{ref.reason}</p>
                             {isApplied ? (
-                              <span className="text-xs" style={{ color: '#5A7A68' }}>✓ 已应用</span>
+                              <span className="text-xs" style={{ color: '#5A7A68' }}>{tr("✓ 已应用")}</span>
                             ) : (
                               <button
                                 className="text-xs px-3 py-1 rounded-full transition-all hover:opacity-70"
@@ -356,7 +357,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                                 }}
                                 onClick={() => handleApplyRefinement(ref)}
                               >
-                                替换表述
+                                {tr("替换表述")}
                               </button>
                             )}
                           </div>
@@ -369,7 +370,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                   {result.missingLinks.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                        🔗 可能缺失的环节
+                        {tr("🔗 可能缺失的环节")}
                       </label>
                       {result.missingLinks.map((ml, i) => {
                         const isAdded = addedMissingLinks.has(i)
@@ -398,7 +399,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                               </div>
                             )}
                             {isAdded ? (
-                              <span className="text-xs" style={{ color: '#5A7A68' }}>✓ 已添加</span>
+                              <span className="text-xs" style={{ color: '#5A7A68' }}>{tr("✓ 已添加")}</span>
                             ) : (
                               <button
                                 className="text-xs px-3 py-1 rounded-full transition-all hover:opacity-70"
@@ -409,7 +410,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                                 }}
                                 onClick={() => handleAddMissingLink(ml, i)}
                               >
-                                {ml.suggestedNode ? '添加桥接节点' : '标记'}
+                                {ml.suggestedNode ? tr("添加桥接节点") : tr("标记")}
                               </button>
                             )}
                           </div>
@@ -422,7 +423,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                   {result.suggestedNodes.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                        🌱 建议新增的节点
+                        {tr("🌱 建议新增的节点")}
                       </label>
                       {result.suggestedNodes.map((node, i) => {
                         const isAdded = addedNodes.has(i)
@@ -452,7 +453,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                               </div>
                             </div>
                             {isAdded ? (
-                              <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#5A7A68' }}>已添加</span>
+                              <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#5A7A68' }}>{tr("已添加")}</span>
                             ) : (
                               <button
                                 className="text-xs flex-shrink-0 ml-2 px-2.5 py-1 rounded-full transition-all hover:opacity-70"
@@ -463,7 +464,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                                 }}
                                 onClick={() => handleAddSuggestedNode(node, i)}
                               >
-                                + 添加
+                                {tr("+ 添加")}
                               </button>
                             )}
                           </div>
@@ -477,7 +478,7 @@ export default function ChainExplorePanel({ open, onClose, chainNodeIds }: Props
                     style={{ color: '#9C9088' }}
                     onClick={handleClose}
                   >
-                    关闭
+                    {tr("关闭")}
                   </button>
                 </div>
               )}

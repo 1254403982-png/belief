@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
@@ -41,9 +42,9 @@ function AttitudeChip({
         border: `1px solid ${active ? cfg.color : 'transparent'}`,
       }}
       onClick={onClick}
-      title={active ? '已标记' : '点击应用此建议'}
+      title={active ? tr("已标记") : tr("点击应用此建议")}
     >
-      {cfg.label}{active ? ' ✓' : ''}
+      {tr(cfg.label)}{active ? ' ✓' : ''}
     </button>
   )
 }
@@ -53,7 +54,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
   const [panelState, setPanelState] = useState<PanelState>('loading')
   const [result, setResult] = useState<ReviewResult | null>(null)
 
-  const title = reviewType === 'monthly' ? '每月长期信念盘点' : reviewType === 'weekly' ? '每周信念清理' : '每日待办回顾'
+  const title = tr(reviewType === 'monthly' ? '每月长期信念盘点' : reviewType === 'weekly' ? '每周信念清理' : '每日待办回顾')
   const icon = reviewType === 'monthly' ? '🌙' : reviewType === 'weekly' ? '🌟' : '📌'
 
   useEffect(() => {
@@ -181,7 +182,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                     style={{ backgroundColor: '#C8A96E' }}
                   />
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    AI 正在回顾你的信念...
+                    {tr("AI 正在回顾你的信念...")}
                   </p>
                 </div>
               )}
@@ -191,8 +192,8 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                 <div className="py-8 space-y-4">
                   <p className="text-sm text-center" style={{ color: '#9C9088' }}>
                     {reviewType === 'monthly'
-                      ? '还没有标记为长期信念的节点'
-                      : '还没有标记为待清理的节点'}
+                      ? tr("还没有标记为长期信念的节点")
+                      : tr("还没有标记为待清理的节点")}
                   </p>
                   <div className="flex justify-center">
                     <button
@@ -200,7 +201,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                       style={{ color: '#9C9088' }}
                       onClick={onClose}
                     >
-                      关闭
+                      {tr("关闭")}
                     </button>
                   </div>
                 </div>
@@ -210,7 +211,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
               {panelState === 'error' && (
                 <div className="space-y-4 py-4">
                   <p className="text-sm text-center" style={{ color: '#9C9088' }}>
-                    梳理暂时无法进行，请稍后再试
+                    {tr("梳理暂时无法进行，请稍后再试")}
                   </p>
                   <div className="flex gap-2 justify-center">
                     <button
@@ -222,14 +223,14 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                       }}
                       onClick={runReview}
                     >
-                      重试
+                      {tr("重试")}
                     </button>
                     <button
                       className="text-sm px-4 py-1.5"
                       style={{ color: '#9C9088' }}
                       onClick={onClose}
                     >
-                      关闭
+                      {tr("关闭")}
                     </button>
                   </div>
                 </div>
@@ -252,7 +253,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                     </div>
                   ) : (
                     <p className="text-sm text-center" style={{ color: '#9C9088' }}>
-                      已经梳理完毕，暂时没有特别的发现 🌿
+                      {tr("已经梳理完毕，暂时没有特别的发现 🌿")}
                     </p>
                   )}
 
@@ -260,7 +261,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                   {result?.nodeInsights && result.nodeInsights.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                        信念观察
+                        {tr("信念观察")}
                       </label>
                       {result.nodeInsights.map((ni, i) => {
                         const node = store.nodes.find(n => n.id === ni.nodeId)
@@ -295,7 +296,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                             {ni.suggestedAttitude && (
                               <div className="flex items-center gap-1.5 pt-1 border-t" style={{ borderColor: 'rgba(224, 216, 204, 0.5)' }}>
                                 <span className="text-xs" style={{ color: '#C4B8B0' }}>
-                                  AI 建议 →
+                                  {tr("AI 建议 →")}
                                 </span>
                                 <AttitudeChip
                                   attitude={ni.suggestedAttitude}
@@ -303,7 +304,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                                   onClick={() => handleApplyAttitude(ni.nodeId, ni.suggestedAttitude!)}
                                 />
                                 <span className="text-xs" style={{ color: '#C4B8B0' }}>
-                                  · 点击标记
+                                  {tr("· 点击标记")}
                                 </span>
                               </div>
                             )}
@@ -317,7 +318,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                   {result?.patternObservations && result.patternObservations.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                        关联模式
+                        {tr("关联模式")}
                       </label>
                       {result.patternObservations.map((po, i) => (
                         <div
@@ -344,7 +345,7 @@ export default function ReviewPanel({ open, reviewType, onClose }: Props) {
                       }}
                       onClick={handleComplete}
                     >
-                      完成梳理
+                      {tr("完成梳理")}
                     </button>
                   </div>
                 </div>

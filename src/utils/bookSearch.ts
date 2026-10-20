@@ -15,11 +15,33 @@ const STOP_WORDS = new Set([
   '如果', '虽然', '但是', '然而', '然后', '于是', '因此', '不过',
 ])
 
+// The current book excerpts are Chinese. Match common English concept names to
+// their source-language terms so an English interface can still retrieve them.
+const ENGLISH_CONCEPTS: Array<[RegExp, string]> = [
+  [/\b(?:reincarnation|reincarnate|past lives?)\b/i, '转世'],
+  [/\b(?:multidimensional (?:personality|self)|multiple selves)\b/i, '多次元人格'],
+  [/\b(?:inner self|inner ego)\b/i, '内我'],
+  [/\b(?:outer self|outer ego)\b/i, '外在自我'],
+  [/\b(?:inner senses?)\b/i, '内在感官'],
+  [/\b(?:consciousness|conscious)\b/i, '意识'],
+  [/\b(?:dreams?|dreaming|sleep)\b/i, '梦 睡眠'],
+  [/\b(?:reality|realities)\b/i, '实相'],
+  [/\b(?:soul|souls|spirit)\b/i, '灵魂'],
+  [/\b(?:thoughts?|beliefs?|ideas?)\b/i, '思想 信念'],
+  [/\b(?:matter|material|physical)\b/i, '物质'],
+  [/\b(?:religion|religious)\b/i, '宗教'],
+  [/\bseth\b/i, '赛斯'],
+]
+
 /** 中文分词：滑动窗口生成 2-gram + 3-gram，去停用词 */
 function tokenize(text: string): string[] {
   const tokens: string[] = []
+  const translatedTerms = ENGLISH_CONCEPTS
+    .filter(([english]) => english.test(text))
+    .map(([, chinese]) => chinese)
+    .join(' ')
   // 先提取纯中文序列
-  const cleaned = text.replace(/[^一-鿿]+/g, '')
+  const cleaned = `${text} ${translatedTerms}`.replace(/[^一-鿿]+/g, '')
   if (cleaned.length < 2) return tokens
 
   // 滑动 2-gram
@@ -80,7 +102,8 @@ export function searchBookForConversation(
   topN = 5,
   includePersonal = false,
 ): SearchResult[] {
-  const isFollowUp = (text: string) => text.length <= 48 && /它|这个|这种|上述|前面|刚才|进一步|再具体|继续|能再|能否再/.test(text)
+  const isFollowUp = (text: string) => text.length <= 48 && (/它|这个|这种|上述|前面|刚才|进一步|再具体|继续|能再|能否再/.test(text)
+    || /\b(?:it|that|this|those|them|more|further|elaborate|explain again)\b/i.test(text))
   const previousQuestions: typeof history = []
   for (let index = 0; index < history.length - 1; index++) {
     const question = history[index]

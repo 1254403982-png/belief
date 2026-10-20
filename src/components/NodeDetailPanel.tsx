@@ -1,3 +1,4 @@
+import { getLanguage, tr } from '../i18n'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBeliefStore } from '../stores/useBeliefStore'
@@ -42,7 +43,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
 
   if (!selectedNode) return null
 
-  const currentTypeLabel = TYPE_OPTIONS.find(t => t.value === selectedNode.type)?.label || selectedNode.type
+  const currentTypeLabel = tr(TYPE_OPTIONS.find(t => t.value === selectedNode.type)?.label || selectedNode.type)
   const currentAttitude = selectedNode.attitude
 
   const closeGuide = () => {
@@ -96,16 +97,16 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
           {/* 头部 */}
           <div className="flex items-center justify-between px-6 pt-6 pb-4">
             <h3 className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-              节点详情
+              {tr("节点详情")}
             </h3>
             <div className="flex items-center gap-1">
-              <button type="button" aria-label="这张卡怎么用" aria-controls={guideOpen ? 'node-detail-guide' : undefined} aria-expanded={guideOpen}
-                title="这张卡怎么用" className="w-9 h-9 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
+              <button type="button" aria-label={tr("这张卡怎么用")} aria-controls={guideOpen ? 'node-detail-guide' : undefined} aria-expanded={guideOpen}
+                title={tr("这张卡怎么用")} className="w-9 h-9 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }} onClick={() => guideOpen ? closeGuide() : setGuideOpen(true)}>?</button>
               <button
                 type="button"
-                aria-label="关闭节点详情"
-                title="关闭节点详情"
+                aria-label={tr("关闭节点详情")}
+                title={tr("关闭节点详情")}
                 className="w-9 h-9 -mr-2 rounded-full flex items-center justify-center text-base hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
                 onClick={() => store.selectNode(null)}
@@ -117,20 +118,20 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
 
           {/* 内容区 */}
           <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
-            {guideOpen && <section id="node-detail-guide" aria-label="节点详情使用说明" className="rounded-xl border border-[#E9DFD1] bg-[#FAF7F2] p-3 text-xs leading-5 text-[#746A61]">
-              <p className="font-medium text-sm text-[#5C4A3A]">这张卡，慢慢整理就好</p>
+            {guideOpen && <section id="node-detail-guide" aria-label={tr("节点详情使用说明")} className="rounded-xl border border-[#E9DFD1] bg-[#FAF7F2] p-3 text-xs leading-5 text-[#746A61]">
+              <p className="font-medium text-sm text-[#5C4A3A]">{tr("这张卡，慢慢整理就好")}</p>
               <ul className="mt-2 space-y-1.5">
-                <li><strong className="text-[#5C4A3A]">文字与类型：</strong>修改原话；类型是它在信念层次中的位置，不确定就留在「未分类」。</li>
-                <li><strong className="text-[#5C4A3A]">态度与领域：</strong>态度是你现在想怎样对待它，领域是它涉及的生活方面；两者可分别选，已选项可取消。</li>
-                <li><strong className="text-[#5C4A3A]">继续探索：</strong>往下可看连接、请念念提问、写笔记，或把它标记为日后回顾的内容。</li>
+                <li><strong className="text-[#5C4A3A]">{tr("文字与类型：")}</strong>{tr("修改原话；类型是它在信念层次中的位置，不确定就留在「未分类」。")}</li>
+                <li><strong className="text-[#5C4A3A]">{tr("态度与领域：")}</strong>{tr("态度是你现在想怎样对待它，领域是它涉及的生活方面；两者可分别选，已选项可取消。")}</li>
+                <li><strong className="text-[#5C4A3A]">{tr("继续探索：")}</strong>{tr("往下可看连接、请念念提问、写笔记，或把它标记为日后回顾的内容。")}</li>
               </ul>
-              <button type="button" className="mt-2 min-h-8 text-[#8B6B3A] underline underline-offset-4" onClick={closeGuide}>知道了</button>
+              <button type="button" className="mt-2 min-h-8 text-[#8B6B3A] underline underline-offset-4" onClick={closeGuide}>{tr("知道了")}</button>
             </section>}
             {/* 节点文字 */}
             <section>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs tracking-wide" style={{ color: '#9C9088' }}>
-                  内容
+                  {tr("内容")}
                 </label>
                 <button
                   className="text-xs px-2 py-0.5 rounded-full transition-all hover:opacity-70"
@@ -144,7 +145,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                     setEditingContent(true)
                   }}
                 >
-                  ✏️ 修改
+                  {tr("✏️ 修改")}
                 </button>
               </div>
               {editingContent ? (
@@ -183,14 +184,14 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                         setEditingContent(false)
                       }}
                     >
-                      保存
+                      {tr("保存")}
                     </button>
                     <button
                       className="text-xs px-3 py-1 rounded-full"
                       style={{ color: '#9C9088' }}
                       onClick={() => setEditingContent(false)}
                     >
-                      取消
+                      {tr("取消")}
                     </button>
                   </div>
                 </div>
@@ -204,14 +205,14 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             {selectedNode.sourceSessionId && onOpenExploration && (
               <button className="text-sm text-left text-[#5C4A3A] underline py-2"
                 onClick={() => onOpenExploration(selectedNode.sourceSessionId!)}>
-                回看这句话来自哪次探索
+                {tr("回看这句话来自哪次探索")}
               </button>
             )}
 
             {/* 类型选择 */}
             <section>
               <label className="text-xs tracking-wide mb-2 block" style={{ color: '#9C9088' }}>
-                类型 · {currentTypeLabel}
+                {tr("类型 ·")} {currentTypeLabel}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {TYPE_OPTIONS.map(t => (
@@ -231,7 +232,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                     }}
                     onClick={() => handleTypeChange(t.value)}
                   >
-                    {t.label}
+                    {tr(t.label)}
                   </button>
                 ))}
               </div>
@@ -240,7 +241,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             {/* 态度标记 */}
             <section>
               <label className="text-xs tracking-wide mb-2 block" style={{ color: '#9C9088' }}>
-                态度标记
+                {tr("态度标记")}
               </label>
               <div className="flex flex-col gap-2">
                 {ATTITUDE_OPTIONS.map(a => (
@@ -262,10 +263,10 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                     )}
                   >
                     <span className="text-sm font-medium block" style={{ color: getAttitudeText(a.value) }}>
-                      {a.label}
+                      {tr(a.label)}
                     </span>
                     <span className="text-xs mt-0.5 block" style={{ color: '#9C9088' }}>
-                      {a.desc}
+                      {tr(a.desc)}
                     </span>
                   </button>
                 ))}
@@ -275,7 +276,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             {/* 领域分类 */}
             <section>
               <label className="text-xs tracking-wide mb-2 block" style={{ color: '#9C9088' }}>
-                领域 · {selectedNode.category ? getCategoryEmoji(selectedNode.category) + ' ' + getCategoryLabel(selectedNode.category) : '未分类'}
+                {tr("领域 ·")} {selectedNode.category ? getCategoryEmoji(selectedNode.category) + ' ' + getCategoryLabel(selectedNode.category) : tr("未分类")}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {CATEGORIES.map(cat => (
@@ -317,16 +318,16 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             <ConnectedNodes nodeId={selectedNode.id} />
 
             <section className="rounded-xl border border-[#E9DCC9] bg-[#FFFBF5] p-3 space-y-3">
-              <div className="flex items-center gap-2"><NianNian size={32} /><span className="text-sm text-[#5C4A3A]">念念陪你看看这句话</span></div>
-              <p className="text-xs leading-5 text-[#7A7670]">先保留你的原话和判断。可以继续记录思考，也可以只请念念问一个问题。</p>
-              {onThinkWithNianNian && <button type="button" className="text-xs rounded-full bg-[#EEDFC6] text-[#5C4A3A] px-3 py-1.5" onClick={() => onThinkWithNianNian(selectedNode.id)}>和念念继续思考</button>}
+              <div className="flex items-center gap-2"><NianNian size={32} /><span className="text-sm text-[#5C4A3A]">{tr("念念陪你看看这句话")}</span></div>
+              <p className="text-xs leading-5 text-[#7A7670]">{tr("先保留你的原话和判断。可以继续记录思考，也可以只请念念问一个问题。")}</p>
+              {onThinkWithNianNian && <button type="button" className="text-xs rounded-full bg-[#EEDFC6] text-[#5C4A3A] px-3 py-1.5" onClick={() => onThinkWithNianNian(selectedNode.id)}>{tr("和念念继续思考")}</button>}
               <ConnectionQuestion key={selectedNode.id} nodes={[selectedNode, ...store.nodes.filter(node => store.edges.some(edge => (edge.sourceId === selectedNode.id && edge.targetId === node.id) || (edge.targetId === selectedNode.id && edge.sourceId === node.id))).slice(0, 7)]} edges={store.edges.filter(edge => edge.sourceId === selectedNode.id || edge.targetId === selectedNode.id).slice(0, 12)} compact />
             </section>
 
             {/* 笔记 */}
             <section>
               <label className="text-xs tracking-wide mb-2 block" style={{ color: '#9C9088' }}>
-                笔记
+                {tr("笔记")}
               </label>
               {editingNote ? (
                 <div className="space-y-2">
@@ -338,7 +339,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                       fontFamily: 'inherit',
                       minHeight: 80,
                     }}
-                    placeholder="写下你的想法..."
+                    placeholder={tr("写下你的想法...")}
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     autoFocus
@@ -353,14 +354,14 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                       className="text-xs px-3 py-1 rounded-full btn-soft"
                       onClick={handleNoteSave}
                     >
-                      保存
+                      {tr("保存")}
                     </button>
                     <button
                       className="text-xs px-3 py-1 rounded-full"
                       style={{ color: '#9C9088' }}
                       onClick={() => setEditingNote(false)}
                     >
-                      取消
+                      {tr("取消")}
                     </button>
                   </div>
                 </div>
@@ -374,7 +375,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                   }}
                   onClick={startEditNote}
                 >
-                  {selectedNode.userNote || '添加笔记...'}
+                  {selectedNode.userNote || tr("添加笔记...")}
                 </button>
               )}
             </section>
@@ -382,7 +383,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             {/* 长期信念 + 待清理 开关 */}
             <section className="space-y-2">
               <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
-                标记
+                {tr("标记")}
               </label>
               <button
                 className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-all duration-200 ${
@@ -402,9 +403,9 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                   db.beliefNodes.update(selectedNode.id, { isLongTerm: !selectedNode.isLongTerm })
                 }}
               >
-                🌙 长期信念
+                {tr("🌙 长期信念")}
                 <span className="text-xs ml-1" style={{ color: '#C4B8B0' }}>
-                  {selectedNode.isLongTerm ? '· 已标记' : '· 标记后纳入每月盘点'}
+                  {selectedNode.isLongTerm ? tr("· 已标记") : tr("· 标记后纳入每月盘点")}
                 </span>
               </button>
               <button
@@ -425,9 +426,9 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                   db.beliefNodes.update(selectedNode.id, { markedForReview: !selectedNode.markedForReview })
                 }}
               >
-                🧹 待清理
+                {tr("🧹 待清理")}
                 <span className="text-xs ml-1" style={{ color: '#C4B8B0' }}>
-                  {selectedNode.markedForReview ? '· 已标记' : '· 标记后纳入每周清理'}
+                  {selectedNode.markedForReview ? tr("· 已标记") : tr("· 标记后纳入每周清理")}
                 </span>
               </button>
             </section>
@@ -435,7 +436,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
             {/* 元信息 */}
             <section>
               <p className="text-xs leading-relaxed" style={{ color: '#C4B8B0' }}>
-                创建于 {formatDate(selectedNode.createdAt)}
+                {tr("创建于")} {formatDate(selectedNode.createdAt)}
               </p>
             </section>
 
@@ -450,14 +451,16 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                   }}
                   onClick={() => {
                     const confirmed = window.confirm(
-                      `这个信念已经陪伴了你一段时间。确定要温柔地放下「${selectedNode.content.length > 16 ? selectedNode.content.slice(0, 16) + '...' : selectedNode.content}」吗？`
+                      getLanguage() === 'en'
+                        ? `This belief has been with you for a while. Release “${selectedNode.content.length > 16 ? selectedNode.content.slice(0, 16) + '...' : selectedNode.content}”?`
+                        : `这个信念已经陪伴了你一段时间。确定要温柔地放下「${selectedNode.content.length > 16 ? selectedNode.content.slice(0, 16) + '...' : selectedNode.content}」吗？`
                     )
                     if (!confirmed) return
                     store.updateNode(selectedNode.id, { status: 'fading' })
                     db.beliefNodes.update(selectedNode.id, { status: 'fading' })
                   }}
                 >
-                  ✨ 释怀此信念
+                  {tr("✨ 释怀此信念")}
                 </button>
               </section>
             )}
@@ -472,7 +475,9 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                 }}
                 onClick={() => {
                   const confirmed = window.confirm(
-                    `确定要删除「${selectedNode.content}」吗？\n删除后会进入垃圾箱，7天内可恢复。`
+                    getLanguage() === 'en'
+                      ? `Delete “${selectedNode.content}”?\nIt will move to Trash and can be restored within seven days.`
+                      : `确定要删除「${selectedNode.content}」吗？\n删除后会进入垃圾箱，7天内可恢复。`
                   )
                   if (!confirmed) return
                   const nid = selectedNode.id
@@ -481,7 +486,7 @@ export default function NodeDetailPanel({ onOpenExploration, onThinkWithNianNian
                   db.beliefNodes.update(nid, { deletedAt: new Date() })
                 }}
               >
-                删除此节点
+                {tr("删除此节点")}
               </button>
             </section>
           </div>
@@ -514,7 +519,7 @@ function CustomCategoryInput({
             border: '1px solid #E0D8CC',
             width: 100,
           }}
-          placeholder="分类名..."
+          placeholder={tr("分类名...")}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -595,7 +600,7 @@ function CustomCategoryInput({
       }}
       onClick={() => setEditing(true)}
     >
-      + 自定义分类
+      {tr("+ 自定义分类")}
     </button>
   )
 }
@@ -620,7 +625,7 @@ function ConnectedNodes({ nodeId }: { nodeId: string }) {
   return (
     <section>
       <label className="text-xs tracking-wide mb-2 block" style={{ color: '#9C9088' }}>
-        已连接 · {connectedEdges.length}
+        {tr("已连接 ·")} {connectedEdges.length}
       </label>
       <div className="space-y-1">
         {connectedEdges.map(edge => {
@@ -638,14 +643,14 @@ function ConnectedNodes({ nodeId }: { nodeId: string }) {
                   {other.content}
                 </span>
                 <span className="text-xs" style={{ color: '#C4B8B0' }}>
-                  {getTypeLabel(other.type)} · {isDirectionalLink(edge.type) ? (edge.sourceId === nodeId ? '我 → 对方 · ' : '对方 → 我 · ') : ''}{linkTypeLabel(edge.type)}
+                  {getTypeLabel(other.type)} · {isDirectionalLink(edge.type) ? (edge.sourceId === nodeId ? tr("我 → 对方 · ") : tr("对方 → 我 · ")) : ''}{linkTypeLabel(edge.type)}
                 </span>
               </div>
               <button
                 className="flex-shrink-0 ml-2 text-xs hover:opacity-70 transition-opacity"
                 style={{ color: '#C8A080' }}
                 onClick={() => disconnect(edge.id)}
-                title="断开连接"
+                title={tr("断开连接")}
               >
                 ✕
               </button>

@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useState } from 'react'
 import type { BeliefEdge, BeliefNode } from '../db'
 import { askConnectionQuestion, describeAIRequestFailure } from '../utils/deepseek'
@@ -25,13 +26,13 @@ export default function ConnectionQuestion({ nodes, edges, compact = false }: { 
   return <div className={compact ? 'space-y-2' : 'rounded-xl border border-[#E9DCC9] bg-[#FFFBF5] p-3 space-y-2'}>
     <div className="flex items-center gap-2">
       <NianNian size={compact ? 25 : 30} />
-      <span className="text-xs font-medium text-[#5C4A3A]">念念陪你想</span>
+      <span className="text-xs font-medium text-[#5C4A3A]">{tr("念念陪你想")}</span>
     </div>
-    <p className="text-xs leading-5 text-[#7A7670]">关系不必一次说清。念念只会问一个问题，是否保留连线由你决定。</p>
+    <p className="text-xs leading-5 text-[#7A7670]">{tr("关系不必一次说清。念念只会问一个问题，是否保留连线由你决定。")}</p>
     {question && <p className="text-sm leading-6 text-[#4A4036]" aria-live="polite">{question}</p>}
-    {error && <p className="text-xs text-[#9A573E]" role="alert">{error}</p>}
+    {error && <p className="text-xs text-[#9A573E]" role="alert">{tr(error)}</p>}
     <button type="button" className="text-xs text-[#8B6B3A] underline disabled:opacity-40" disabled={loading} onClick={() => void ask()}>
-      {loading ? '念念正在想一个问题…' : question ? '换一个问题' : '请念念问一个问题'}
+      {loading ? tr("念念正在想一个问题…") : question ? tr("换一个问题") : tr("请念念问一个问题")}
     </button>
   </div>
 }

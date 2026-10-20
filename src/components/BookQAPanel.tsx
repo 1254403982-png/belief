@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePanelFocus } from './usePanelFocus'
@@ -121,7 +122,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
     try {
       const results = searchBookForConversation(selectedBook, q, history, 5, usePersonal)
       const answer = results.length === 0
-        ? '当前收录的章节里没有检索到直接相关的段落。可以换个问法，或试试书中的关键词。'
+        ? tr('当前收录的章节里没有检索到直接相关的段落。可以换个问法，或试试书中的关键词。')
         : await askBook(
           selectedBook.meta.title,
           q,
@@ -130,12 +131,12 @@ export default function BookQAPanel({ open, onClose }: Props) {
         )
       reply = {
         id: crypto.randomUUID(), role: 'assistant', mode, createdAt: new Date(),
-        content: answer || '抱歉，暂时无法回答，请稍后再试。',
+        content: answer || tr('抱歉，暂时无法回答，请稍后再试。'),
         ...(answer && results.length > 0 ? { sources: [...new Set(results.map(result => result.chapter))] } : {}),
         ...(!answer || results.length === 0 ? { status: 'notice' as const } : {}),
       }
     } catch {
-      reply = { id: crypto.randomUUID(), role: 'assistant', mode, createdAt: new Date(), status: 'notice', content: '抱歉，暂时无法回答，请稍后再试。' }
+      reply = { id: crypto.randomUUID(), role: 'assistant', mode, createdAt: new Date(), status: 'notice', content: tr('抱歉，暂时无法回答，请稍后再试。') }
     }
     try {
       await appendMessage(userId, bookId, reply)
@@ -203,7 +204,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3 flex-shrink-0">
               <h3 id="book-qa-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-                {selectedBook ? `📖 ${selectedBook.meta.title}` : '📚 书本问答'}
+                {selectedBook ? `📖 ${tr(selectedBook.meta.title)}` : tr("📚 书本问答")}
               </h3>
               <div className="flex items-center gap-2">
                 {selectedBook && (
@@ -212,12 +213,12 @@ export default function BookQAPanel({ open, onClose }: Props) {
                     style={{ color: '#9C9088' }}
                     onClick={handleBack}
                   >
-                    ← 返回
+                    {tr("← 返回")}
                   </button>
                 )}
                 <button
                   type="button"
-                  aria-label="关闭书本问答"
+                  aria-label={tr("关闭书本问答")}
                   data-panel-close
                   className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                   style={{ color: '#9C9088' }}
@@ -234,7 +235,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                 /* 书本列表 */
                 <div className="px-6 pb-6 space-y-3">
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    选择一本书，先理解书中的概念；对话会保存在当前浏览器，之后可以接着追问。
+                    {tr("选择一本书，先理解书中的概念；对话会保存在当前浏览器，之后可以接着追问。")}
                   </p>
                   {books.map(book => (
                     <button
@@ -249,14 +250,14 @@ export default function BookQAPanel({ open, onClose }: Props) {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-lg">{book.meta.emoji}</span>
                         <span className="font-serif text-base" style={{ color: '#4A4036' }}>
-                          {book.meta.title}
+                          {tr(book.meta.title)}
                         </span>
                       </div>
                       <p className="text-xs" style={{ color: '#9C9088' }}>
-                        {book.meta.author}
+                        {tr(book.meta.author)}
                       </p>
                       <p className="text-xs mt-1.5 leading-relaxed" style={{ color: '#6B6560' }}>
-                        {book.meta.description}
+                        {tr(book.meta.description)}
                       </p>
                     </button>
                   ))}
@@ -273,17 +274,17 @@ export default function BookQAPanel({ open, onClose }: Props) {
                       color: '#6B6560',
                     }}
                   >
-                    {selectedBook.meta.description}
+                    {tr(selectedBook.meta.description)}
                   </div>
 
                   {/* 消息列表 */}
                   <div className="space-y-3">
                     {chatReady && visibleMessages.length === 0 && (
                       <p className="text-sm text-center py-8" style={{ color: '#C4B8B0' }}>
-                        在下方输入你对本书的疑问
+                        {tr("在下方输入你对本书的疑问")}
                       </p>
                     )}
-                    {!chatReady && !loadError && <p className="text-sm text-center py-8" style={{ color: '#C4B8B0' }}>正在读取对话…</p>}
+                    {!chatReady && !loadError && <p className="text-sm text-center py-8" style={{ color: '#C4B8B0' }}>{tr("正在读取对话…")}</p>}
                     {visibleMessages.map(msg => (
                       <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
                         <div
@@ -301,13 +302,13 @@ export default function BookQAPanel({ open, onClose }: Props) {
                           {msg.role === 'user' ? (
                             <>
                               <p>{msg.content}</p>
-                              <p className="text-[11px] mt-1 opacity-60">{msg.mode === 'personal' ? '结合我的信念' : '仅讲书中概念'}</p>
+                              <p className="text-[11px] mt-1 opacity-60">{msg.mode === 'personal' ? tr("结合我的信念") : tr("仅讲书中概念")}</p>
                             </>
                           ) : (
                             <>
                               <BookAnswer content={msg.content} />
-                              {msg.sources && <p className="text-[11px] mt-2 opacity-60">检索段落：{msg.sources.join('、')}</p>}
-                              {unsavedReply?.id === msg.id && <p className="text-[11px] mt-2 opacity-60">尚未保存</p>}
+                              {msg.sources && <p className="text-[11px] mt-2 opacity-60">{tr("检索段落：")}{msg.sources.join('、')}</p>}
+                              {unsavedReply?.id === msg.id && <p className="text-[11px] mt-2 opacity-60">{tr("尚未保存")}</p>}
                             </>
                           )}
                         </div>
@@ -318,7 +319,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                         <span className="inline-block w-3 h-3 rounded-full animate-pulse"
                           style={{ backgroundColor: '#C8A96E' }}
                         />
-                        <span className="text-xs" style={{ color: '#C4B8B0' }}>思考中...</span>
+                        <span className="text-xs" style={{ color: '#C4B8B0' }}>{tr("思考中...")}</span>
                       </div>
                     )}
                   </div>
@@ -330,20 +331,20 @@ export default function BookQAPanel({ open, onClose }: Props) {
             {selectedBook && (
               <div className="flex-shrink-0 px-6 pb-5 pt-2">
                 {(visibleError || unsavedReply) && <div className="flex items-center gap-2 mb-2">
-                  <p role="alert" className="text-xs flex-1" style={{ color: '#9A573E' }}>{visibleError || '回答尚未保存，请重试。'}</p>
-                  {unsavedReply && <button type="button" className="text-xs px-2 py-1 rounded-full" style={{ color: '#5C4A3A', backgroundColor: 'rgba(200, 169, 110, 0.12)' }} onClick={() => void retrySaveReply()}>重试保存</button>}
+                  <p role="alert" className="text-xs flex-1" style={{ color: '#9A573E' }}>{visibleError ? tr(visibleError) : tr("回答尚未保存，请重试。")}</p>
+                  {unsavedReply && <button type="button" className="text-xs px-2 py-1 rounded-full" style={{ color: '#5C4A3A', backgroundColor: 'rgba(200, 169, 110, 0.12)' }} onClick={() => void retrySaveReply()}>{tr("重试保存")}</button>}
                 </div>}
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <span className="text-xs" style={{ color: '#9C9088' }}>默认只解释书中概念</span>
+                  <span className="text-xs" style={{ color: '#9C9088' }}>{tr("默认只解释书中概念")}</span>
                   <button type="button" role="switch" aria-checked={includeBeliefs}
-                    aria-label="本次结合我的信念" disabled={!chatReady || loading || !!unsavedReply || personalBeliefs.length === 0}
+                    aria-label={tr("本次结合我的信念")} disabled={!chatReady || loading || !!unsavedReply || personalBeliefs.length === 0}
                     onClick={() => setIncludeBeliefs(value => !value)}
                     className="text-xs px-3 py-1.5 rounded-full transition-colors disabled:opacity-40"
                     style={{ color: includeBeliefs ? '#5A7A68' : '#7A7670', backgroundColor: includeBeliefs ? 'rgba(160, 200, 176, 0.15)' : 'rgba(200, 169, 110, 0.08)' }}>
-                    {includeBeliefs ? '✓ ' : ''}结合我的信念
+                    {includeBeliefs ? '✓ ' : ''}{tr("结合我的信念")}
                   </button>
                 </div>
-                {personalBeliefs.length === 0 && <p className="text-xs mb-2" style={{ color: '#9C9088' }}>画布中还没有可参考的信念记录</p>}
+                {personalBeliefs.length === 0 && <p className="text-xs mb-2" style={{ color: '#9C9088' }}>{tr("画布中还没有可参考的信念记录")}</p>}
                 <div className="flex items-center gap-2">
                   <input
                     disabled={!chatReady || loading || !!unsavedReply}
@@ -353,7 +354,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                       border: '1px solid #E0D8CC',
                       color: '#4A4036',
                     }}
-                    placeholder="问一个关于这本书的问题..."
+                    placeholder={tr("问一个关于这本书的问题...")}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void handleSend() }}
@@ -363,7 +364,7 @@ export default function BookQAPanel({ open, onClose }: Props) {
                     style={{ backgroundColor: 'rgba(200, 169, 110, 0.12)', color: '#5C4A3A' }}
                     onClick={() => void handleSend()}
                   >
-                    发送
+                    {tr("发送")}
                   </button>
                 </div>
               </div>

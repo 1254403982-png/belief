@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { useEffect, useRef } from 'react'
 import { useBeliefStore } from '../stores/useBeliefStore'
 import { db } from '../db'
@@ -98,9 +99,9 @@ export default function EdgeInfoPopup({ edgeId, screenX, screenY, onClose }: Pro
         </span>
       </div>
 
-      <p className="text-xs text-[#7A7670] mb-2">当前关系：{linkTypeLabel(edge.type)}</p>
+      <p className="text-xs text-[#7A7670] mb-2">{tr("当前关系：")}{linkTypeLabel(edge.type)}</p>
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {([['manual', '待厘清'], ['related_to', '有关联'], ['leads_to', '前者可能影响后者']] as const).map(([type, label]) => <button key={type} type="button" className="text-xs px-2 py-1 rounded-full border" style={{ borderColor: edge.type === type ? '#C8A96E' : '#E0D8CC', background: edge.type === type ? '#F8F0E2' : 'transparent', color: '#5C4A3A' }} onClick={() => changeType(type)}>{label}</button>)}
+        {([['manual', tr("待厘清")], ['related_to', tr("有关联")], ['leads_to', tr("前者可能影响后者")]] as const).map(([type, label]) => <button key={type} type="button" className="text-xs px-2 py-1 rounded-full border" style={{ borderColor: edge.type === type ? '#C8A96E' : '#E0D8CC', background: edge.type === type ? '#F8F0E2' : 'transparent', color: '#5C4A3A' }} onClick={() => changeType(type)}>{label}</button>)}
       </div>
       <ConnectionQuestion key={edgeId} nodes={[source, target]} edges={[edge]} compact />
 
@@ -113,7 +114,7 @@ export default function EdgeInfoPopup({ edgeId, screenX, screenY, onClose }: Pro
         }}
         onClick={handleDisconnect}
       >
-        断开连接
+        {tr("断开连接")}
       </button>
     </div>
   )

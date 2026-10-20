@@ -1,9 +1,11 @@
+import { tr } from '../i18n'
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePanelFocus } from './usePanelFocus'
 import { db } from '../db'
 import { exportAsJSON, exportAsMarkdown } from '../utils/export'
 import ToolbarIcon from './ToolbarIcon'
+import LanguageSwitch from './LanguageSwitch'
 
 interface Props {
   open: boolean
@@ -206,11 +208,11 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
             {/* 头部 */}
             <div className="flex items-center justify-between px-6 pt-6 pb-3">
               <h3 id="settings-title" className="font-serif text-lg" style={{ color: '#5C4A3A' }}>
-                设置
+                {tr("设置")}
               </h3>
               <button
                 type="button"
-                aria-label="关闭设置"
+                aria-label={tr("关闭设置")}
                 data-panel-close
                 className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center text-sm hover:bg-[#F3E9DB] transition-colors"
                 style={{ color: '#9C9088' }}
@@ -221,21 +223,25 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
+              <section className="flex items-center justify-between gap-3">
+                <span className="text-sm text-[#746A61]">{tr("网站语言 / Language")}</span>
+                <LanguageSwitch />
+              </section>
               {/* ====== 账号信息 ====== */}
               <section className="space-y-3">
                 <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
-                  账号信息
+                  {tr("账号信息")}
                 </label>
                 <div className="rounded-lg p-3 space-y-3" style={{
                   backgroundColor: 'rgba(200, 169, 110, 0.04)',
                   border: '1px solid rgba(200, 169, 110, 0.08)',
                 }}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#9C9088' }}>账号名</span>
+                    <span className="text-xs" style={{ color: '#9C9088' }}>{tr("账号名")}</span>
                     <span className="text-sm" style={{ color: '#4A4036' }}>{username}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#9C9088' }}>昵称</span>
+                    <span className="text-xs" style={{ color: '#9C9088' }}>{tr("昵称")}</span>
                     {editingNickname ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -292,7 +298,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                     setPwSuccess('')
                   }}
                 >
-                  {showChangePassword ? '收起' : '修改密码 ▸'}
+                  {showChangePassword ? tr("收起") : tr("修改密码 ▸")}
                 </button>
 
                 {showChangePassword && (
@@ -303,30 +309,30 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                     <input
                       className="input-underline text-sm w-full"
                       type="password"
-                      placeholder="原密码"
+                      placeholder={tr("原密码")}
                       value={oldPassword}
                       onChange={(e) => setOldPassword(e.target.value)}
                     />
                     <input
                       className="input-underline text-sm w-full"
                       type="password"
-                      placeholder="新密码（至少8个字符）"
+                      placeholder={tr("新密码（至少8个字符）")}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
                     <input
                       className="input-underline text-sm w-full"
                       type="password"
-                      placeholder="确认新密码"
+                      placeholder={tr("确认新密码")}
                       value={confirmNew}
                       onChange={(e) => setConfirmNew(e.target.value)}
                     />
 
                     {pwError && (
-                      <p className="text-xs" style={{ color: '#C8A080' }}>{pwError}</p>
+                      <p className="text-xs" style={{ color: '#C8A080' }}>{tr(pwError)}</p>
                     )}
                     {pwSuccess && (
-                      <p className="text-xs" style={{ color: '#5A7A68' }}>{pwSuccess}</p>
+                      <p className="text-xs" style={{ color: '#5A7A68' }}>{tr(pwSuccess)}</p>
                     )}
 
                     <button
@@ -340,7 +346,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       onClick={handleChangePassword}
                       disabled={pwLoading}
                     >
-                      {pwLoading ? '修改中...' : '确认修改密码'}
+                      {pwLoading ? tr("修改中...") : tr("确认修改密码")}
                     </button>
                   </div>
                 )}
@@ -351,20 +357,20 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
               {/* ====== 梳理开关 ====== */}
               <section className="space-y-3">
                 <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
-                  定期梳理
+                  {tr("定期梳理")}
                 </label>
                 <ToggleRow
-                  label="每月长期信念盘点"
+                  label={tr("每月长期信念盘点")}
                   enabled={monthlyEnabled}
                   onToggle={handleToggleMonthly}
                 />
                 <ToggleRow
-                  label="每周信念清理"
+                  label={tr("每周信念清理")}
                   enabled={weeklyEnabled}
                   onToggle={handleToggleWeekly}
                 />
                 <ToggleRow
-                  label="每日待办提醒"
+                  label={tr("每日待办提醒")}
                   enabled={dailyEnabled}
                   onToggle={handleToggleDaily}
                 />
@@ -384,7 +390,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                     if (onManualReview) onManualReview('monthly')
                   }}
                 >
-                  🌿 现在梳理
+                  {tr("🌿 现在梳理")}
                 </button>
               </section>
 
@@ -405,7 +411,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       onOpenManual()
                     }}
                   >
-                    <ToolbarIcon name="help" /> 使用手册
+                    <ToolbarIcon name="help" /> {tr("使用手册")}
                   </button>
                 </section>
               )}
@@ -413,10 +419,10 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
               {/* 数据导出 */}
               <section className="space-y-2">
                 <label className="text-xs tracking-wide block" style={{ color: '#9C9088' }}>
-                  数据导出
+                  {tr("数据导出")}
                 </label>
                 <p className="text-xs leading-relaxed" style={{ color: '#7A7670' }}>
-                  当前账号与记录保存在此浏览器，尚未跨设备同步。JSON 备份包含画布、日记、待办、探索和书籍问答记录，请妥善保存。
+                  {tr("当前账号与记录保存在此浏览器，尚未跨设备同步。JSON 备份包含画布、日记、待办、探索和书籍问答记录，请妥善保存。")}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -431,7 +437,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       if (userId) exportAsJSON(userId)
                     }}
                   >
-                    📋 JSON 备份
+                    {tr("📋 JSON 备份")}
                   </button>
                   <button
                     className="flex-1 text-sm px-3 py-2 rounded-full transition-all hover:opacity-80"
@@ -445,7 +451,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                       if (userId) exportAsMarkdown(userId)
                     }}
                   >
-                    📝 Markdown 报告
+                    {tr("📝 Markdown 报告")}
                   </button>
                 </div>
               </section>
@@ -464,12 +470,12 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                     }}
                     onClick={() => setShowLogout(true)}
                   >
-                    退出登录
+                    {tr("退出登录")}
                   </button>
                 ) : (
                   <div className="text-center space-y-2">
                     <p className="text-xs" style={{ color: '#9C9088' }}>
-                      确定要退出登录吗？
+                      {tr("确定要退出登录吗？")}
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -481,7 +487,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                         }}
                         onClick={handleLogout}
                       >
-                        确认退出
+                        {tr("确认退出")}
                       </button>
                       <button
                         className="flex-1 text-sm px-3 py-1.5 rounded-full transition-all hover:opacity-80"
@@ -492,7 +498,7 @@ export default function SettingsPanel({ open, onClose, onManualReview, onOpenMan
                         }}
                         onClick={() => setShowLogout(false)}
                       >
-                        取消
+                        {tr("取消")}
                       </button>
                     </div>
                   </div>

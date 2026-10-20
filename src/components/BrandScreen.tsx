@@ -1,7 +1,9 @@
+import { tr } from '../i18n'
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { db } from '../db'
+import LanguageSwitch from './LanguageSwitch'
 
 type ScreenState = 'brand' | 'login' | 'register'
 
@@ -94,14 +96,16 @@ export default function BrandScreen() {
   }, [username, password, confirmPassword, nickname, navigate])
 
   return (
+    <>
     <div
       className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden"
       style={{ backgroundColor: '#FAF7F2', touchAction: 'manipulation' }}
       role={screenState === 'brand' ? 'button' : undefined}
       tabIndex={screenState === 'brand' ? 0 : undefined}
-      aria-label={screenState === 'brand' ? '进入信念，登录或注册' : undefined}
+      aria-label={screenState === 'brand' ? tr("进入信念，登录或注册") : undefined}
       onClick={screenState === 'brand' ? handleBrandClick : undefined}
       onKeyDown={screenState === 'brand' ? (event) => {
+        if (event.target !== event.currentTarget) return
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
           handleBrandClick()
@@ -126,7 +130,7 @@ export default function BrandScreen() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: reduceMotion ? 0 : 1.5, ease: 'easeOut' }}
             >
-              信念
+              {tr("信念")}
             </motion.h1>
             <motion.p
               className="mt-6 text-sm tracking-wider"
@@ -135,7 +139,7 @@ export default function BrandScreen() {
               animate={{ opacity: 1 }}
               transition={{ delay: reduceMotion ? 0 : 0.8, duration: reduceMotion ? 0 : 1.2 }}
             >
-              点击任意位置进入
+              {tr("点击任意位置进入")}
             </motion.p>
           </motion.div>
         )}
@@ -154,7 +158,7 @@ export default function BrandScreen() {
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
               style={{ color: '#5C4A3A' }}
             >
-              信念
+              {tr("信念")}
             </motion.h1>
 
             <motion.form
@@ -165,14 +169,14 @@ export default function BrandScreen() {
               transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.6 }}
             >
               <label className="block text-sm text-[#746A61]">
-                账号名
+                {tr("账号名")}
                 <input className="input-underline" type="text" name="username" autoComplete="username"
-                  placeholder="输入账号名" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+                  placeholder={tr("输入账号名")} value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
               </label>
               <label className="block text-sm text-[#746A61]">
-                密码
+                {tr("密码")}
                 <input className="input-underline" type="password" name="password" autoComplete="current-password"
-                  placeholder="输入密码" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  placeholder={tr("输入密码")} value={password} onChange={(e) => setPassword(e.target.value)} />
               </label>
 
               {error && (
@@ -183,7 +187,7 @@ export default function BrandScreen() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  {error}
+                  {tr(error)}
                 </motion.p>
               )}
 
@@ -195,7 +199,7 @@ export default function BrandScreen() {
                 whileTap={{ scale: 0.98 }}
                 style={{ opacity: loading ? 0.6 : 1 }}
               >
-                {loading ? '登录中...' : '登录'}
+                {loading ? tr("登录中...") : tr("登录")}
               </motion.button>
 
               <p className="text-center">
@@ -205,7 +209,7 @@ export default function BrandScreen() {
                   style={{ color: '#9C9088' }}
                   onClick={() => switchTo('register')}
                 >
-                  没有账号？<span style={{ color: '#C8A96E' }}>注册</span>
+                  {tr("没有账号？")}<span style={{ color: '#C8A96E' }}>{tr("注册")}</span>
                 </button>
               </p>
             </motion.form>
@@ -226,7 +230,7 @@ export default function BrandScreen() {
               className="font-serif text-3xl md:text-4xl tracking-widest mb-10"
               style={{ color: '#5C4A3A' }}
             >
-              信念
+              {tr("信念")}
             </motion.h1>
 
             <motion.form
@@ -237,24 +241,24 @@ export default function BrandScreen() {
               transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.6 }}
             >
               <label className="block text-sm text-[#746A61]">
-                账号名
+                {tr("账号名")}
                 <input className="input-underline" type="text" name="username" autoComplete="username"
-                  placeholder="至少 2 个字符" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+                  placeholder={tr("至少 2 个字符")} value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
               </label>
               <label className="block text-sm text-[#746A61]">
-                昵称 <span className="text-[#9C9088]">（选填）</span>
+                {tr("昵称")} <span className="text-[#9C9088]">{tr("（选填）")}</span>
                 <input className="input-underline" type="text" name="nickname" autoComplete="nickname"
-                  placeholder="显示在应用中" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+                  placeholder={tr("显示在应用中")} value={nickname} onChange={(e) => setNickname(e.target.value)} />
               </label>
               <label className="block text-sm text-[#746A61]">
-                密码
+                {tr("密码")}
                 <input className="input-underline" type="password" name="new-password" autoComplete="new-password"
-                  placeholder="至少 8 个字符" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  placeholder={tr("至少 8 个字符")} value={password} onChange={(e) => setPassword(e.target.value)} />
               </label>
               <label className="block text-sm text-[#746A61]">
-                确认密码
+                {tr("确认密码")}
                 <input className="input-underline" type="password" name="confirm-password" autoComplete="new-password"
-                  placeholder="再次输入密码" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                  placeholder={tr("再次输入密码")} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               </label>
 
               {error && (
@@ -265,7 +269,7 @@ export default function BrandScreen() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  {error}
+                  {tr(error)}
                 </motion.p>
               )}
 
@@ -277,7 +281,7 @@ export default function BrandScreen() {
                 whileTap={{ scale: 0.98 }}
                 style={{ opacity: loading ? 0.6 : 1 }}
               >
-                {loading ? '注册中...' : '注册'}
+                {loading ? tr("注册中...") : tr("注册")}
               </motion.button>
 
               <p className="text-center">
@@ -287,7 +291,7 @@ export default function BrandScreen() {
                   style={{ color: '#9C9088' }}
                   onClick={() => switchTo('login')}
                 >
-                  已有账号？<span style={{ color: '#C8A96E' }}>登录</span>
+                  {tr("已有账号？")}<span style={{ color: '#C8A96E' }}>{tr("登录")}</span>
                 </button>
               </p>
             </motion.form>
@@ -295,5 +299,7 @@ export default function BrandScreen() {
         )}
       </AnimatePresence>
     </div>
+    <div className="fixed right-5 top-5 z-10"><LanguageSwitch /></div>
+    </>
   )
 }

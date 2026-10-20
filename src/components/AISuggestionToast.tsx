@@ -1,3 +1,4 @@
+import { tr } from '../i18n'
 import { motion, AnimatePresence } from 'framer-motion'
 import { hasMeaningfulPolish, type ClassifyResult } from '../utils/deepseek'
 import { getNodeColor, getTypeLabel, getCategoryLabel, getCategoryEmoji } from './utils'
@@ -65,12 +66,12 @@ export default function AISuggestionToast({
                 boxShadow: '0 4px 28px rgba(74, 64, 54, 0.08)',
               }}
             >
-              <div className="flex items-center gap-2 text-sm text-[#5C4A3A]"><NianNian size={28} /><span>念念的想法 · 由你决定是否采纳</span></div>
+              <div className="flex items-center gap-2 text-sm text-[#5C4A3A]"><NianNian size={28} /><span>{tr("念念的想法 · 由你决定是否采纳")}</span></div>
               {/* 重复提示 */}
               {duplicate && !loading && (
                 <div className="space-y-3">
                   <p className="text-sm" style={{ color: '#4A4036' }}>
-                    💭 这个想法已经存在了
+                    {tr("💭 这个想法已经存在了")}
                   </p>
                   <p
                     className="text-xs leading-relaxed px-3 py-2 rounded-lg"
@@ -91,7 +92,7 @@ export default function AISuggestionToast({
                     }}
                     onClick={onDismiss}
                   >
-                    知道了
+                    {tr("知道了")}
                   </button>
                 </div>
               )}
@@ -112,7 +113,7 @@ export default function AISuggestionToast({
                     }}
                   />
                   <p className="text-xs" style={{ color: '#C4B8B0' }}>
-                    念念正在理解...
+                    {tr("念念正在理解...")}
                   </p>
                 </div>
               )}
@@ -121,7 +122,7 @@ export default function AISuggestionToast({
               {error && !loading && (
                 <div className="space-y-4">
                   <p className="text-sm" style={{ color: '#9C9088' }}>
-                    {errorMessage || 'AI 暂时无法回应。你可以先保留原文。'}
+                    {errorMessage || tr("AI 暂时无法回应。你可以先保留原文。")}
                   </p>
                   <button
                     className="text-sm px-4 py-1.5 rounded-full transition-all duration-200"
@@ -132,7 +133,7 @@ export default function AISuggestionToast({
                     }}
                     onClick={onKeepOriginal}
                   >
-                    保留原文
+                    {tr("保留原文")}
                   </button>
                 </div>
               )}
@@ -144,7 +145,7 @@ export default function AISuggestionToast({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(200, 169, 110, 0.08)', color: '#9C9088' }}>
-                        原文
+                        {tr("原文")}
                       </span>
                       <p className="text-sm" style={{ color: '#4A4036' }}>
                         {originalText.length > 40 ? originalText.slice(0, 40) + '...' : originalText}
@@ -152,15 +153,15 @@ export default function AISuggestionToast({
                     </div>
                     {hasPolish ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(160, 200, 176, 0.15)', color: '#5A7A68' }}>建议表达</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(160, 200, 176, 0.15)', color: '#5A7A68' }}>{tr("建议表达")}</span>
                         <p className="text-sm font-medium" style={{ color: '#4A4036' }}>{result.polishedContent}</p>
                       </div>
-                    ) : <p className="text-xs text-[#7A7670]">这句话无需润色，保留你的表达。</p>}
+                    ) : <p className="text-xs text-[#7A7670]">{tr("这句话无需润色，保留你的表达。")}</p>}
                   </div>
 
                   {/* 类型建议 */}
                   {hasClassification && <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs" style={{ color: '#9C9088' }}>建议分类</span>
+                    <span className="text-xs" style={{ color: '#9C9088' }}>{tr("建议分类")}</span>
                     <span
                       className="text-xs px-2.5 py-0.5 rounded-full"
                       style={{
@@ -210,7 +211,7 @@ export default function AISuggestionToast({
                       }}
                       onClick={onAcceptAll}
                     >
-                      {hasPolish ? '采纳建议' : result.type !== 'seed' && result.category ? '采纳分类与领域' : result.type !== 'seed' ? '采纳分类' : '采纳领域'}
+                      {hasPolish ? tr("采纳建议") : result.type !== 'seed' && result.category ? tr("采纳分类与领域") : result.type !== 'seed' ? tr("采纳分类") : tr("采纳领域")}
                     </button>}
                     {result.type !== 'seed' && (hasPolish || result.category) && <button
                       className="text-sm px-3 py-2 rounded-full transition-all duration-200 hover:opacity-80"
@@ -221,14 +222,14 @@ export default function AISuggestionToast({
                       }}
                       onClick={onAcceptTypeOnly}
                     >
-                      仅分类
+                      {tr("仅分类")}
                     </button>}
                     <button
                       className="text-sm px-3 py-2 rounded-full transition-all duration-200 hover:opacity-70"
                       style={{ color: hasPolish || hasClassification ? '#9C9088' : '#5C4A3A' }}
                       onClick={onKeepOriginal}
                     >
-                      {hasPolish || hasClassification ? '保留原样' : '按原样记录'}
+                      {hasPolish || hasClassification ? tr("保留原样") : tr("按原样记录")}
                     </button>
                   </div>
                 </div>

@@ -137,6 +137,14 @@ test('长段落检索摘录包含实际命中的概念', () => {
   assert.match(results[0].snippet, /多次元人格/)
 })
 
+test('English book questions find Chinese source passages for known concepts', () => {
+  const book: BookData = { meta: { id: 'x', title: '测试', author: '', description: '', emoji: '' },
+    chunks: [{ chapter: '转世章', text: '转世与灵魂有关。'.repeat(40) }] }
+  const results = searchBook(book, 'What does reincarnation mean for the soul?')
+  assert.equal(results[0]?.chapter, '转世章')
+  assert.match(results[0].snippet, /转世/)
+})
+
 test('书籍代词追问沿用前一书本概念检索，不借用个人模式的问题', () => {
   const book: BookData = {
     meta: { id: 'x', title: '测试', author: '', description: '', emoji: '' },
